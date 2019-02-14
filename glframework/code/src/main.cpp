@@ -17,7 +17,7 @@ extern void GLrender(float dt);
 
 //////
 namespace {
-	const int expected_fps = 60;
+	const int expected_fps = 144;
 	const double expected_frametime = 1.0 / expected_fps;
 	const uint32_t expected_frametime_ms = (uint32_t) (1e3 * expected_frametime);
 	uint32_t prev_frametimestamp = 0;

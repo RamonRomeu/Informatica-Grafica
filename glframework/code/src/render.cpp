@@ -208,6 +208,7 @@ GLuint cubeVao;
 GLuint cubeVbo[3];
 GLuint cubeShaders[2];
 GLuint cubeProgram;
+glm::vec4 objCol = {1.f, 1.f, 1.f, 1.f};
 glm::mat4 objMat = glm::mat4(1.f);
 
 extern const float halfW = 0.5f;
@@ -334,10 +335,11 @@ void drawCube() {
 	glEnable(GL_PRIMITIVE_RESTART);
 	glBindVertexArray(cubeVao);
 	glUseProgram(cubeProgram);
+
 	glUniformMatrix4fv(glGetUniformLocation(cubeProgram, "objMat"), 1, GL_FALSE, glm::value_ptr(objMat));
 	glUniformMatrix4fv(glGetUniformLocation(cubeProgram, "mv_Mat"), 1, GL_FALSE, glm::value_ptr(RenderVars::_modelView));
 	glUniformMatrix4fv(glGetUniformLocation(cubeProgram, "mvpMat"), 1, GL_FALSE, glm::value_ptr(RenderVars::_MVP));
-	glUniform4f(glGetUniformLocation(cubeProgram, "color"), 0.1f, 1.f, 1.f, 0.f);
+	glUniform4f(glGetUniformLocation(cubeProgram, "color"), objCol[0], objCol[1], objCol[2], objCol[3]);
 	glDrawElements(GL_TRIANGLE_STRIP, numVerts, GL_UNSIGNED_BYTE, 0);
 
 	glUseProgram(0);
@@ -347,34 +349,6 @@ void drawCube() {
 }
 
 /////////////////////////////////////////////////
-static const GLchar * vertext_shader_source =
-{
-"#version 330\n\
-void main() {\n\
-const vec4 vertices[3] = vec4[3](\n\
-vec4(0.25, 0.25, 0.5, 1.0),\n\
-vec4(-0.25, -0.25, 0.5, 1.0), \n\
-vec4(0.25, -0.25, 0.5, 1.0));\n\
-gl_Position =\n\
-vertices[gl_VertexID];\n\
-}"
-};
-
-static const GLchar * fragment_shader_source =
-{
-"#version 330\n\
-\n\
-out vec4 color;\n\
-\n\
-void main() {\n\
-color = vec4(0.0,0.8,1.0,1.0);\n\
-}"
-};
-
-GLuint vert_shader;
-GLuint frag_shader;
-GLuint program;
-GLuint vao_vert;
 
 void GLinit(int width, int height) {
 	glViewport(0, 0, width, height);
@@ -394,14 +368,6 @@ void GLinit(int width, int height) {
 	/////////////////////////////////////////////////////TODO
 	// Do your init code here
 	// ...
-	vert_shader = compileShader(vertext_shader_source, GL_VERTEX_SHADER, "point_vert_shader");
-	frag_shader = compileShader(fragment_shader_source, GL_FRAGMENT_SHADER, "point_frag_shader");
-	program = glCreateProgram();
-	glAttachShader(program, vert_shader);
-	glAttachShader(program, frag_shader);
-	linkProgram(program);
-
-	glGenVertexArrays(1, &vao_vert);
 	// ...
 	// ...
 	/////////////////////////////////////////////////////////
@@ -414,10 +380,6 @@ void GLcleanup() {
 	/////////////////////////////////////////////////////TODO
 	// Do your cleanup code here
 	// ...
-	glDeleteVertexArrays(1, &vao_vert);
-	glDeleteProgram(program);
-	glDeleteShader(vert_shader);
-	glDeleteShader(frag_shader);
 	// ...
 	// ...
 	/////////////////////////////////////////////////////////
@@ -434,13 +396,40 @@ void GLrender(float dt) {
 	RV::_MVP = RV::_projection * RV::_modelView;
 
 	Axis::drawAxis();
-	Cube::drawCube();
+	
+	//Cube::drawCube();
 	/////////////////////////////////////////////////////TODO
 	// Do your render code here
 	// ...
-	glUseProgram(program);
-	glBindVertexArray(vao_vert);
-	glDrawArrays(GL_TRIANGLES, 0, 3);
+	Cube::objCol = { 1.f, 1.f, 1.f, 1.f };
+	Cube::updateCube(glm::mat4(1.f));
+	Cube::drawCube();
+	static glm::vec4 color = { 0.f, 0.f, 0.f, 1.f };
+	static bool up = true;
+	if (up) {
+		color[0] += dt;
+		if (color[0] > 1.f) {
+			color[0] = 1.f;
+			up = false;
+		}
+	}
+	else {
+		color[0] -= dt;
+		if (color[0] < 0.f) {
+			color[0] = 0.f;
+			up = true;
+		}
+	}
+	
+
+	Cube::objCol = color;
+
+	
+	Cube::updateCube(glm::scale(Cube::objMat, glm::vec3{ 1 + color[0], 1 + color[0], 1 + color[0] }));
+	Cube::updateCube(glm::rotate(Cube::objMat, color[0] * glm::two_pi<float>(), glm::vec3{ 0, 1, 0 }));
+	Cube::updateCube(glm::translate(Cube::objMat, glm::vec3(3.f, color[0] * 5, 0.f)));
+	Cube::updateCube(glm::rotate(Cube::objMat, color[0] * glm::two_pi<float>(), glm::vec3{ 0, 1, 0 }));
+	Cube::drawCube();
 	// ...
 	// ...
 	/////////////////////////////////////////////////////////
