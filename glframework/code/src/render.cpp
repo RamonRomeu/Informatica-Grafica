@@ -3,6 +3,7 @@
 #include <glm\gtc\matrix_transform.hpp>
 #include <cstdio>
 #include <cassert>
+#include <vector>
 
 #include <imgui\imgui.h>
 #include <imgui\imgui_impl_sdl_gl3.h>
@@ -21,7 +22,7 @@ void drawAxis();
 ////////////////
 
 namespace RenderVars {
-	const float FOV = glm::radians(65.f);
+	const float FOV = glm::radians(90.f);
 	const float zNear = 1.f;
 	const float zFar = 50.f;
 
@@ -41,6 +42,83 @@ namespace RenderVars {
 	float rota[2] = { 0.f, 0.f };
 }
 namespace RV = RenderVars;
+
+bool loadOBJ(const char * path,
+	std::vector < glm::vec3 > & out_vertices,
+	std::vector < glm::vec2 > & out_uvs,
+	std::vector < glm::vec3 > & out_normals)
+{
+	std::vector< unsigned int > vertexIndices, uvIndices, normalIndices;
+	std::vector< glm::vec3 > temp_vertices;
+	std::vector< glm::vec2 > temp_uvs;
+	std::vector< glm::vec3 > temp_normals;
+
+	FILE * file;
+	fopen_s(&file, path, "r");
+	if (file == NULL) {
+		printf("Impossible to open the file !\n");
+		return false;
+	}
+	while (1) {
+		char lineHeader[128];
+		// read the first word of the line
+		int res = fscanf_s(file, "%s", lineHeader, 128);
+		if (res == EOF)
+			break; // EOF = End Of File. Quit the loop.
+
+		if (strcmp(lineHeader, "v") == 0) {
+			glm::vec3 vertex;
+			fscanf_s(file, "%f %f %f\n", &vertex.x, &vertex.y, &vertex.z);
+			temp_vertices.push_back(vertex);
+		}
+		else if (strcmp(lineHeader, "vt") == 0) {
+			glm::vec2 uv;
+			fscanf_s(file, "%f %f\n", &uv.x, &uv.y);
+			temp_uvs.push_back(uv);
+		}
+		else if (strcmp(lineHeader, "vn") == 0) {
+			glm::vec3 normal;
+			fscanf_s(file, "%f %f %f\n", &normal.x, &normal.y, &normal.z);
+			temp_normals.push_back(normal);
+		}
+		else if (strcmp(lineHeader, "f") == 0) {
+			std::string vertex1, vertex2, vertex3;
+			unsigned int vertexIndex[3], uvIndex[3], normalIndex[3];
+			int matches = fscanf_s(file, "%d/%d/%d %d/%d/%d %d/%d/%d\n", &vertexIndex[0], &uvIndex[0], &normalIndex[0], &vertexIndex[1], &uvIndex[1], &normalIndex[1], &vertexIndex[2], &uvIndex[2], &normalIndex[2]);
+			if (matches != 9) {
+				printf("File can't be read by our simple parser : ( Try exporting with other options\n");
+				return false;
+			}
+			vertexIndices.push_back(vertexIndex[0]);
+			vertexIndices.push_back(vertexIndex[1]);
+			vertexIndices.push_back(vertexIndex[2]);
+			uvIndices.push_back(uvIndex[0]);
+			uvIndices.push_back(uvIndex[1]);
+			uvIndices.push_back(uvIndex[2]);
+			normalIndices.push_back(normalIndex[0]);
+			normalIndices.push_back(normalIndex[1]);
+			normalIndices.push_back(normalIndex[2]);
+		}
+	}
+	// For each vertex of each triangle
+	for (unsigned int i = 0; i < vertexIndices.size(); i++) {
+		unsigned int vertexIndex = vertexIndices[i];
+		glm::vec3 vertex = temp_vertices[vertexIndex - 1];
+		out_vertices.push_back(vertex);
+	}
+
+	for (unsigned int i = 0; i < uvIndices.size(); i++) {
+		unsigned int uvIndex = uvIndices[i];
+		glm::vec2 vertex = temp_uvs[uvIndex - 1];
+		out_uvs.push_back(vertex);
+	}
+
+	for (unsigned int i = 0; i < normalIndices.size(); i++) {
+		unsigned int normalIndex = normalIndices[i];
+		glm::vec3 vertex = temp_normals[normalIndex - 1];
+		out_normals.push_back(vertex);
+	}
+}
 
 void GLResize(int width, int height) {
 	glViewport(0, 0, width, height);
@@ -350,6 +428,96 @@ void drawCube() {
 
 /////////////////////////////////////////////////
 
+namespace Object {
+	GLuint objectVao;
+	GLuint objectVbo[2];
+	GLuint objectShaders[2];
+	GLuint objectProgram;
+	glm::mat4 objMat = glm::mat4(1.f);
+
+	const char* object_vertShader =
+		"#version 330\n\
+in vec3 in_Position;\n\
+in vec3 in_Normal;\n\
+out vec4 vert_Normal;\n\
+uniform mat4 objMat;\n\
+uniform mat4 mv_Mat;\n\
+uniform mat4 mvpMat;\n\
+void main() {\n\
+	gl_Position = mvpMat * objMat * vec4(in_Position, 1.0);\n\
+	vert_Normal = mv_Mat * objMat * vec4(in_Normal, 0.0);\n\
+}";
+	const char* object_fragShader =
+		"#version 330\n\
+in vec4 vert_Normal;\n\
+out vec4 out_Color;\n\
+uniform mat4 mv_Mat;\n\
+uniform vec4 color;\n\
+void main() {\n\
+	out_Color = vec4(color.xyz * dot(vert_Normal, mv_Mat*vec4(0.0, 1.0, 0.0, 0.0)) + color.xyz * 0.3, 1.0 );\n\
+}";
+	void setupObject() {
+
+		std::vector<glm::vec3> verts, norms;
+		std::vector<glm::vec2> uvs;
+		loadOBJ("object.obj", verts, uvs, norms);
+
+		glGenVertexArrays(1, &objectVao);
+		glBindVertexArray(objectVao);
+		glGenBuffers(2, objectVbo);
+
+		glBindBuffer(GL_ARRAY_BUFFER, objectVbo[0]);
+		glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec3) * verts.size(), verts.data(), GL_STATIC_DRAW);///////////
+		glVertexAttribPointer((GLuint)0, 3, GL_FLOAT, GL_FALSE, 0, 0);
+		glEnableVertexAttribArray(0);
+
+		glBindBuffer(GL_ARRAY_BUFFER, objectVbo[1]);
+		glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec3) * norms.size(), norms.data(), GL_STATIC_DRAW);////////////////
+		glVertexAttribPointer((GLuint)1, 3, GL_FLOAT, GL_FALSE, 0, 0);
+		glEnableVertexAttribArray(1);
+
+		glBindVertexArray(0);
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+
+		objectShaders[0] = compileShader(object_vertShader, GL_VERTEX_SHADER, "objectVert");
+		objectShaders[1] = compileShader(object_fragShader, GL_FRAGMENT_SHADER, "objectFrag");
+
+		objectProgram = glCreateProgram();
+		glAttachShader(objectProgram, objectShaders[0]);
+		glAttachShader(objectProgram, objectShaders[1]);
+		glBindAttribLocation(objectProgram, 0, "in_Position");
+		glBindAttribLocation(objectProgram, 1, "in_Normal");
+		linkProgram(objectProgram);
+	}
+	void cleanupObject() {
+		glDeleteBuffers(2, objectVbo);
+		glDeleteVertexArrays(1, &objectVao);
+
+		glDeleteProgram(objectProgram);
+		glDeleteShader(objectShaders[0]);
+		glDeleteShader(objectShaders[1]);
+	}
+	void updateObject(const glm::mat4& transform) {
+		objMat = transform;
+	}
+	void drawObject() {
+		glBindVertexArray(objectVao);
+		glUseProgram(objectProgram);
+
+		glUniformMatrix4fv(glGetUniformLocation(objectProgram, "objMat"), 1, GL_FALSE, glm::value_ptr(objMat));
+		glUniformMatrix4fv(glGetUniformLocation(objectProgram, "mv_Mat"), 1, GL_FALSE, glm::value_ptr(RenderVars::_modelView));
+		glUniformMatrix4fv(glGetUniformLocation(objectProgram, "mvpMat"), 1, GL_FALSE, glm::value_ptr(RenderVars::_MVP));
+
+		glDrawArrays(GL_TRIANGLES, 0, 12 * 3);
+
+		glUseProgram(0);
+		glBindVertexArray(0);
+	}
+}
+
+//////////////////////////////////////////////////////////////////////////
+
 void GLinit(int width, int height) {
 	glViewport(0, 0, width, height);
 	glClearColor(0.2f, 0.2f, 0.2f, 1.f);
@@ -369,6 +537,7 @@ void GLinit(int width, int height) {
 	// Do your init code here
 	// ...
 	// ...
+	Object::setupObject();
 	// ...
 	/////////////////////////////////////////////////////////
 }
@@ -380,6 +549,7 @@ void GLcleanup() {
 	/////////////////////////////////////////////////////TODO
 	// Do your cleanup code here
 	// ...
+	Object::cleanupObject();
 	// ...
 	// ...
 	/////////////////////////////////////////////////////////
@@ -401,6 +571,10 @@ void GLrender(float dt) {
 	/////////////////////////////////////////////////////TODO
 	// Do your render code here
 	// ...
+
+	Object::drawObject();
+
+	/*
 	Cube::objCol = { 1.f, 1.f, 1.f, 1.f };
 	Cube::updateCube(glm::mat4(1.f));
 	Cube::drawCube();
@@ -430,6 +604,9 @@ void GLrender(float dt) {
 	Cube::updateCube(glm::translate(Cube::objMat, glm::vec3(3.f, color[0] * 5, 0.f)));
 	Cube::updateCube(glm::rotate(Cube::objMat, color[0] * glm::two_pi<float>(), glm::vec3{ 0, 1, 0 }));
 	Cube::drawCube();
+	*/
+
+
 	// ...
 	// ...
 	/////////////////////////////////////////////////////////
