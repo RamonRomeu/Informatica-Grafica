@@ -22,7 +22,7 @@ void drawAxis();
 ////////////////
 
 namespace RenderVars {
-	const float FOV = glm::radians(75.f);
+	float FOV = glm::radians(75.f);
 	const float zNear = 1.f;
 	const float zFar = 50.f;
 
@@ -368,7 +368,7 @@ uniform float time;\n\
 float offset = 0.2;\n\
 void main() {\n\
 	vec4 face_norm = (vert_Normal[0] + vert_Normal[1] + vert_Normal[2]) / 3.0;\n\
-	for (int i=0; i < 4; i++) {\n\
+	for (int i=0; i < 1; i++) {\n\
 		gl_Position = projMat * (gl_in[0].gl_Position + face_norm * offset * (i + 1) * (sin(time)-0.5));\n\
 		vert_g_Normal = vert_Normal[0];\n\
 		EmitVertex();\n\
@@ -450,7 +450,7 @@ void drawCube() {
 	glUniformMatrix4fv(glGetUniformLocation(cubeProgram, "objMat"), 1, GL_FALSE, glm::value_ptr(objMat));
 	glUniformMatrix4fv(glGetUniformLocation(cubeProgram, "mv_Mat"), 1, GL_FALSE, glm::value_ptr(RenderVars::_modelView));
 	glUniformMatrix4fv(glGetUniformLocation(cubeProgram, "projMat"), 1, GL_FALSE, glm::value_ptr(RenderVars::_projection));
-	glUniform1f(glGetUniformLocation(cubeProgram, "time"), time);
+	glUniform1f(glGetUniformLocation(cubeProgram, "time"), 0.5);
 	glUniform4f(glGetUniformLocation(cubeProgram, "color"), objCol[0], objCol[1], objCol[2], objCol[3]);
 	glDrawElements(GL_TRIANGLE_STRIP, numVerts, GL_UNSIGNED_BYTE, 0);
 
@@ -472,7 +472,7 @@ namespace Object {
 	float k_dif = 0.f;
 	float k_spe = 0.f;
 	float light_pos[3] = { 5.f,10.f,0.f };
-	bool dollyEffect = false;
+	int dollyEffect = 0;
 
 	int spec_pow;
 	glm::vec3 light_col;
@@ -514,14 +514,14 @@ void main() {\n\
 \n\
 	vec3 E = normalize( camera_pos - out_Position );\n\
 	vec3 R = reflect( -l, vec3(vert_Normal) );\n\
-	vec3 spec_col = k_spe * light_col * pow( clamp( dot( E, R ), 0.f, 1.f ), spec_pow ) / pow(length(camera_pos - out_Position), 2);\n\
+	vec3 spec_col = k_spe * light_col * pow( clamp( dot( E, R ), 0.f, 1.f ), spec_pow );\n\
 \n\
 	out_Color = color * (dif_color + amb_col + spec_col);\n\
 }";
 	void setupObject() {
 		std::vector<glm::vec3> verts, norms;
 		std::vector<glm::vec2> uvs;
-		loadOBJ("snipa.obj", verts, uvs, norms);
+		loadOBJ("object.obj", verts, uvs, norms);
 
 		k_amb = k_dif = .5f;
 		k_spe = 1.f;
@@ -576,7 +576,7 @@ void main() {\n\
 		glUniformMatrix4fv(glGetUniformLocation(objectProgram, "objMat"), 1, GL_FALSE, glm::value_ptr(objMat));
 		glUniformMatrix4fv(glGetUniformLocation(objectProgram, "mv_Mat"), 1, GL_FALSE, glm::value_ptr(RenderVars::_modelView));
 		glUniformMatrix4fv(glGetUniformLocation(objectProgram, "mvpMat"), 1, GL_FALSE, glm::value_ptr(RenderVars::_MVP));
-		glUniform3f(glGetUniformLocation(objectProgram, "color"), 0, 1, 1);
+		glUniform3f(glGetUniformLocation(objectProgram, "color"), 0.2, 0.2, 0.2);
 
 		glUniform1f(glGetUniformLocation(objectProgram, "k_amb"), k_amb);
 		glUniform1f(glGetUniformLocation(objectProgram, "k_dif"), k_dif);
@@ -634,59 +634,59 @@ void GLcleanup() {
 	/////////////////////////////////////////////////////////
 }
 
+float timeCounter = 0;
+
 void GLrender(float dt) {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-	RV::_modelView = glm::mat4(1.f);
-	RV::_modelView = glm::translate(RV::_modelView, glm::vec3(RV::panv[0], RV::panv[1], RV::panv[2]));
-	RV::_modelView = glm::rotate(RV::_modelView, RV::rota[1], glm::vec3(1.f, 0.f, 0.f));
-	RV::_modelView = glm::rotate(RV::_modelView, RV::rota[0], glm::vec3(0.f, 1.f, 0.f));
+	
 
 	RV::_MVP = RV::_projection * RV::_modelView;
 
 	Axis::drawAxis();
-	
-	//Cube::drawCube();
+
 	/////////////////////////////////////////////////////TODO
 	// Do your render code here
 	// ...
 
 	Object::drawObject();
 
-	/*
-	Cube::objCol = { 1.f, 1.f, 1.f, 1.f };
-	Cube::updateCube(glm::mat4(1.f));
-	Cube::drawCube();
-	static glm::vec4 color = { 0.f, 0.f, 0.f, 1.f };
-	static bool up = true;
-	if (up) {
-		color[0] += dt;
-		if (color[0] > 1.f) {
-			color[0] = 1.f;
-			up = false;
-		}
+	for (int i = 0; i < 11; i++) {
+		Cube::updateCube(glm::mat4(1.f));
+		Cube::updateCube(glm::translate(Cube::objMat, glm::vec3(-5.f, 9.f, 14.f - 3*i)));
+		Cube::updateCube(glm::scale(Cube::objMat, glm::vec3(2)));
+		Cube::drawCube();
+	}
+
+	timeCounter += dt;
+	if (Object::dollyEffect == 1) {
+		RV::_modelView = glm::mat4(1.f);
+		glm::vec3 position = glm::vec3(15 + 2 * (sin(timeCounter) * 2 - 1), 8, 0);
+		RV::_modelView = glm::translate(RV::_modelView, position);
+		RV::_modelView = glm::lookAt(position, position + glm::vec3(-1, 0, 0), glm::vec3(0, 1, 0));
+	}
+	else if (Object::dollyEffect == 2) {
+		glm::vec3 position = glm::vec3(15 + 2 * (sin(timeCounter) * 2 - 1), 8, 0);
+		RV::_modelView = glm::translate(RV::_modelView, glm::vec3(10, 8, 0));
+		RV::FOV = glm::asin(8 / glm::length(position)) * 2;
+		RV::_projection = glm::perspective(RV::FOV, (float)4/3, RV::zNear, RV::zFar);
+		RV::_modelView = glm::lookAt(glm::vec3(10, 8, 0), glm::vec3(10, 8, 0) + glm::vec3(-1, 0, 0), glm::vec3(0, 1, 0));
+	}
+	else if (Object::dollyEffect == 3) {
+		RV::_modelView = glm::mat4(1.f);
+		glm::vec3 position = glm::vec3(15 + 2 * (sin(timeCounter) * 2 - 1), 8, 0);
+		RV::_modelView = glm::translate(RV::_modelView, position);
+		RV::_modelView = glm::lookAt(position, position + glm::vec3(-1, 0, 0), glm::vec3(0, 1, 0));
+		RV::FOV = glm::asin(8 / glm::length(position)) * 2;
+		RV::_projection = glm::perspective(RV::FOV, (float)4 / 3, RV::zNear, RV::zFar);
 	}
 	else {
-		color[0] -= dt;
-		if (color[0] < 0.f) {
-			color[0] = 0.f;
-			up = true;
-		}
-	}
-	
-
-	Cube::objCol = color;
-
-	
-	Cube::updateCube(glm::scale(Cube::objMat, glm::vec3{ 1 + color[0], 1 + color[0], 1 + color[0] }));
-	Cube::updateCube(glm::rotate(Cube::objMat, color[0] * glm::two_pi<float>(), glm::vec3{ 0, 1, 0 }));
-	Cube::updateCube(glm::translate(Cube::objMat, glm::vec3(3.f, color[0] * 5, 0.f)));
-	Cube::updateCube(glm::rotate(Cube::objMat, color[0] * glm::two_pi<float>(), glm::vec3{ 0, 1, 0 }));
-	Cube::drawCube();
-	*/
-
-	if (Object::dollyEffect) {
-
+		RV::_modelView = glm::mat4(1.f);
+		RV::_modelView = glm::translate(RV::_modelView, glm::vec3(RV::panv[0], RV::panv[1], RV::panv[2]));
+		RV::_modelView = glm::rotate(RV::_modelView, RV::rota[1], glm::vec3(1.f, 0.f, 0.f));
+		RV::_modelView = glm::rotate(RV::_modelView, RV::rota[0], glm::vec3(0.f, 1.f, 0.f));
+		RV::FOV = glm::radians(75.f);
+		RV::_projection = glm::perspective(RV::FOV, (float)4 / 3, RV::zNear, RV::zFar);
 	}
 
 
@@ -713,8 +713,9 @@ void GUI() {
 		ImGui::DragFloat("k Ambiental", &Object::k_spe, 0.005f,0,1);
 		ImGui::DragFloat3("Light Position", Object::light_pos);
 		if (ImGui::Button("Dolly Effect")) {
-			//flag con bool para activar/desactivar dolly effect
-			Object::dollyEffect = !Object::dollyEffect;
+			Object::dollyEffect++;
+			if (Object::dollyEffect >= 4)
+				Object::dollyEffect = 0;
 		}
 		// ...
 		/////////////////////////////////////////////////////////
