@@ -465,6 +465,7 @@ float k_amb = 0.f;
 float k_dif = 0.f;
 float k_spe = 0.f;
 float light_pos[3] = { 5.f,10.f,0.f };
+bool dollyEffect = false;
 
 namespace Object {
 	GLuint objectVao;
@@ -684,6 +685,10 @@ void GLrender(float dt) {
 	Cube::drawCube();
 	*/
 
+	if (dollyEffect) {
+
+	}
+
 
 	// ...
 	// ...
@@ -707,6 +712,10 @@ void GUI() {
 		ImGui::DragFloat("k Specular", &k_amb, 0.005f,0,1);
 		ImGui::DragFloat("k Ambiental", &k_spe, 0.005f,0,1);
 		ImGui::DragFloat3("Light Position", light_pos);
+		if (ImGui::Button("Dolly Effect")) {
+			//flag con bool para activar/desactivar dolly effect
+			dollyEffect = !dollyEffect;
+		}
 		// ...
 		/////////////////////////////////////////////////////////
 	}
