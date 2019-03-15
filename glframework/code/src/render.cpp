@@ -461,6 +461,10 @@ void drawCube() {
 }
 
 /////////////////////////////////////////////////
+float k_amb = 0.f;
+float k_dif = 0.f;
+float k_spe = 0.f;
+float light_pos[3] = { 5.f,10.f,0.f };
 
 namespace Object {
 	GLuint objectVao;
@@ -469,9 +473,8 @@ namespace Object {
 	GLuint objectProgram;
 	glm::mat4 objMat = glm::mat4(1.f);
 
-	float k_amb, k_dif, k_spe;
 	int spec_pow;
-	glm::vec3 light_pos, light_col;
+	glm::vec3 light_col;
 
 	const char* object_vertShader =
 		"#version 330\n\
@@ -517,12 +520,11 @@ void main() {\n\
 	void setupObject() {
 		std::vector<glm::vec3> verts, norms;
 		std::vector<glm::vec2> uvs;
-		loadOBJ("object.obj", verts, uvs, norms);
+		loadOBJ("snipa.obj", verts, uvs, norms);
 
 		k_amb = k_dif = .5f;
 		k_spe = 1.f;
 		spec_pow = 30;
-		light_pos = { 5, 14, 0 };
 		light_col = { 1.f, 1.f, 1.f };
 
 		glGenVertexArrays(1, &objectVao);
@@ -585,7 +587,7 @@ void main() {\n\
 		glUniform3f(glGetUniformLocation(objectProgram, "camera_pos"), RV::_cameraPoint.x, RV::_cameraPoint.y, RV::_cameraPoint.z);
 
 
-		glDrawArrays(GL_TRIANGLES, 0, 14000);
+		glDrawArrays(GL_TRIANGLES, 0, 14000); 
 
 		glUseProgram(0);
 		glBindVertexArray(0);
@@ -701,7 +703,10 @@ void GUI() {
 		// Do your GUI code here....
 		// ...
 		// ...
-
+		ImGui::DragFloat("k Diffuse", &k_dif, 0.005f,0,1);
+		ImGui::DragFloat("k Specular", &k_amb, 0.005f,0,1);
+		ImGui::DragFloat("k Ambiental", &k_spe, 0.005f,0,1);
+		ImGui::DragFloat3("Light Position", light_pos);
 		// ...
 		/////////////////////////////////////////////////////////
 	}
