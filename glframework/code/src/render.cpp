@@ -461,11 +461,6 @@ void drawCube() {
 }
 
 /////////////////////////////////////////////////
-float k_amb = 0.f;
-float k_dif = 0.f;
-float k_spe = 0.f;
-float light_pos[3] = { 5.f,10.f,0.f };
-bool dollyEffect = false;
 
 namespace Object {
 	GLuint objectVao;
@@ -473,6 +468,11 @@ namespace Object {
 	GLuint objectShaders[2];
 	GLuint objectProgram;
 	glm::mat4 objMat = glm::mat4(1.f);
+	float k_amb = 0.f;
+	float k_dif = 0.f;
+	float k_spe = 0.f;
+	float light_pos[3] = { 5.f,10.f,0.f };
+	bool dollyEffect = false;
 
 	int spec_pow;
 	glm::vec3 light_col;
@@ -685,7 +685,7 @@ void GLrender(float dt) {
 	Cube::drawCube();
 	*/
 
-	if (dollyEffect) {
+	if (Object::dollyEffect) {
 
 	}
 
@@ -708,13 +708,13 @@ void GUI() {
 		// Do your GUI code here....
 		// ...
 		// ...
-		ImGui::DragFloat("k Diffuse", &k_dif, 0.005f,0,1);
-		ImGui::DragFloat("k Specular", &k_amb, 0.005f,0,1);
-		ImGui::DragFloat("k Ambiental", &k_spe, 0.005f,0,1);
-		ImGui::DragFloat3("Light Position", light_pos);
+		ImGui::DragFloat("k Diffuse", &Object::k_dif, 0.005f,0,1);
+		ImGui::DragFloat("k Specular", &Object::k_amb, 0.005f,0,1);
+		ImGui::DragFloat("k Ambiental", &Object::k_spe, 0.005f,0,1);
+		ImGui::DragFloat3("Light Position", Object::light_pos);
 		if (ImGui::Button("Dolly Effect")) {
 			//flag con bool para activar/desactivar dolly effect
-			dollyEffect = !dollyEffect;
+			Object::dollyEffect = !Object::dollyEffect;
 		}
 		// ...
 		/////////////////////////////////////////////////////////
