@@ -3,7 +3,6 @@
 #include <glm\gtc\matrix_transform.hpp>
 #include <cstdio>
 #include <cassert>
-#include <vector>
 
 #include <imgui\imgui.h>
 #include <imgui\imgui_impl_sdl_gl3.h>
@@ -22,7 +21,7 @@ void drawAxis();
 ////////////////
 
 namespace RenderVars {
-	float FOV = glm::radians(75.f);
+	const float FOV = glm::radians(65.f);
 	const float zNear = 1.f;
 	const float zFar = 50.f;
 
@@ -30,7 +29,7 @@ namespace RenderVars {
 	glm::mat4 _modelView;
 	glm::mat4 _MVP;
 	glm::mat4 _inv_modelview;
-	glm::vec4 _cameraPoint; 
+	glm::vec4 _cameraPoint;
 
 	struct prevMouse {
 		float lastx, lasty;
@@ -42,83 +41,6 @@ namespace RenderVars {
 	float rota[2] = { 0.f, 0.f };
 }
 namespace RV = RenderVars;
-
-bool loadOBJ(const char * path,
-	std::vector < glm::vec3 > & out_vertices,
-	std::vector < glm::vec2 > & out_uvs,
-	std::vector < glm::vec3 > & out_normals)
-{
-	std::vector< unsigned int > vertexIndices, uvIndices, normalIndices;
-	std::vector< glm::vec3 > temp_vertices;
-	std::vector< glm::vec2 > temp_uvs;
-	std::vector< glm::vec3 > temp_normals;
-
-	FILE * file;
-	fopen_s(&file, path, "r");
-	if (file == NULL) {
-		printf("Impossible to open the file !\n");
-		return false;
-	}
-	while (1) {
-		char lineHeader[128];
-		// read the first word of the line
-		int res = fscanf_s(file, "%s", lineHeader, 128);
-		if (res == EOF)
-			break; // EOF = End Of File. Quit the loop.
-
-		if (strcmp(lineHeader, "v") == 0) {
-			glm::vec3 vertex;
-			fscanf_s(file, "%f %f %f\n", &vertex.x, &vertex.y, &vertex.z);
-			temp_vertices.push_back(vertex);
-		}
-		else if (strcmp(lineHeader, "vt") == 0) {
-			glm::vec2 uv;
-			fscanf_s(file, "%f %f\n", &uv.x, &uv.y);
-			temp_uvs.push_back(uv);
-		}
-		else if (strcmp(lineHeader, "vn") == 0) {
-			glm::vec3 normal;
-			fscanf_s(file, "%f %f %f\n", &normal.x, &normal.y, &normal.z);
-			temp_normals.push_back(normal);
-		}
-		else if (strcmp(lineHeader, "f") == 0) {
-			std::string vertex1, vertex2, vertex3;
-			unsigned int vertexIndex[3], uvIndex[3], normalIndex[3];
-			int matches = fscanf_s(file, "%d/%d/%d %d/%d/%d %d/%d/%d\n", &vertexIndex[0], &uvIndex[0], &normalIndex[0], &vertexIndex[1], &uvIndex[1], &normalIndex[1], &vertexIndex[2], &uvIndex[2], &normalIndex[2]);
-			if (matches != 9) {
-				printf("File can't be read by our simple parser : ( Try exporting with other options\n");
-				return false;
-			}
-			vertexIndices.push_back(vertexIndex[0]);
-			vertexIndices.push_back(vertexIndex[1]);
-			vertexIndices.push_back(vertexIndex[2]);
-			uvIndices.push_back(uvIndex[0]);
-			uvIndices.push_back(uvIndex[1]);
-			uvIndices.push_back(uvIndex[2]);
-			normalIndices.push_back(normalIndex[0]);
-			normalIndices.push_back(normalIndex[1]);
-			normalIndices.push_back(normalIndex[2]);
-		}
-	}
-	// For each vertex of each triangle
-	for (unsigned int i = 0; i < vertexIndices.size(); i++) {
-		unsigned int vertexIndex = vertexIndices[i];
-		glm::vec3 vertex = temp_vertices[vertexIndex - 1];
-		out_vertices.push_back(vertex);
-	}
-
-	for (unsigned int i = 0; i < uvIndices.size(); i++) {
-		unsigned int uvIndex = uvIndices[i];
-		glm::vec2 vertex = temp_uvs[uvIndex - 1];
-		out_uvs.push_back(vertex);
-	}
-
-	for (unsigned int i = 0; i < normalIndices.size(); i++) {
-		unsigned int normalIndex = normalIndices[i];
-		glm::vec3 vertex = temp_normals[normalIndex - 1];
-		out_normals.push_back(vertex);
-	}
-}
 
 void GLResize(int width, int height) {
 	glViewport(0, 0, width, height);
@@ -185,34 +107,34 @@ void linkProgram(GLuint program) {
 
 ////////////////////////////////////////////////// AXIS
 namespace Axis {
-	GLuint AxisVao;
-	GLuint AxisVbo[3];
-	GLuint AxisShader[2];
-	GLuint AxisProgram;
+GLuint AxisVao;
+GLuint AxisVbo[3];
+GLuint AxisShader[2];
+GLuint AxisProgram;
 
-	float AxisVerts[] = {
-		0.0, 0.0, 0.0,
-		1.0, 0.0, 0.0,
-		0.0, 0.0, 0.0,
-		0.0, 1.0, 0.0,
-		0.0, 0.0, 0.0,
-		0.0, 0.0, 1.0
-	};
-	float AxisColors[] = {
-		1.0, 0.0, 0.0, 1.0,
-		1.0, 0.0, 0.0, 1.0,
-		0.0, 1.0, 0.0, 1.0,
-		0.0, 1.0, 0.0, 1.0,
-		0.0, 0.0, 1.0, 1.0,
-		0.0, 0.0, 1.0, 1.0
-	};
-	GLubyte AxisIdx[] = {
-		0, 1,
-		2, 3,
-		4, 5
-	};
-	const char* Axis_vertShader =
-		"#version 330\n\
+float AxisVerts[] = {
+	0.0, 0.0, 0.0,
+	1.0, 0.0, 0.0,
+	0.0, 0.0, 0.0,
+	0.0, 1.0, 0.0,
+	0.0, 0.0, 0.0,
+	0.0, 0.0, 1.0
+};
+float AxisColors[] = {
+	1.0, 0.0, 0.0, 1.0,
+	1.0, 0.0, 0.0, 1.0,
+	0.0, 1.0, 0.0, 1.0,
+	0.0, 1.0, 0.0, 1.0,
+	0.0, 0.0, 1.0, 1.0,
+	0.0, 0.0, 1.0, 1.0
+};
+GLubyte AxisIdx[] = {
+	0, 1,
+	2, 3,
+	4, 5
+};
+const char* Axis_vertShader =
+"#version 330\n\
 in vec3 in_Position;\n\
 in vec4 in_Color;\n\
 out vec4 vert_color;\n\
@@ -221,7 +143,6 @@ void main() {\n\
 	vert_color = in_Color;\n\
 	gl_Position = mvpMat * vec4(in_Position, 1.0);\n\
 }";
-
 const char* Axis_fragShader =
 "#version 330\n\
 in vec4 vert_color;\n\
@@ -285,9 +206,8 @@ void drawAxis() {
 namespace Cube {
 GLuint cubeVao;
 GLuint cubeVbo[3];
-GLuint cubeShaders[3];
+GLuint cubeShaders[2];
 GLuint cubeProgram;
-glm::vec4 objCol = {1.f, 0.f, 0.f, 1.f};
 glm::mat4 objMat = glm::mat4(1.f);
 
 extern const float halfW = 0.5f;
@@ -352,45 +272,19 @@ in vec3 in_Normal;\n\
 out vec4 vert_Normal;\n\
 uniform mat4 objMat;\n\
 uniform mat4 mv_Mat;\n\
+uniform mat4 mvpMat;\n\
 void main() {\n\
-	gl_Position = mv_Mat * objMat * vec4(in_Position, 1.0);\n\
+	gl_Position = mvpMat * objMat * vec4(in_Position, 1.0);\n\
 	vert_Normal = mv_Mat * objMat * vec4(in_Normal, 0.0);\n\
 }";
-
-const char* cube_geomShader =
-"#version 330\n\
-layout(triangles) in;\n\
-layout(triangle_strip, max_vertices=24) out;\n\
-in vec4 vert_Normal[];\n\
-out vec4 vert_g_Normal;\n\
-uniform mat4 projMat;\n\
-uniform float time;\n\
-float offset = 0.2;\n\
-void main() {\n\
-	vec4 face_norm = (vert_Normal[0] + vert_Normal[1] + vert_Normal[2]) / 3.0;\n\
-	for (int i=0; i < 8; i++) {\n\
-		gl_Position = projMat * (gl_in[0].gl_Position + face_norm * offset * (i + 1) * (sin(time)-0.5));\n\
-		vert_g_Normal = vert_Normal[0];\n\
-		EmitVertex();\n\
-		gl_Position = projMat * (gl_in[1].gl_Position + face_norm * offset * (i + 1) * (sin(time)-0.5));\n\
-		vert_g_Normal = vert_Normal[1];\n\
-		EmitVertex();\n\
-		gl_Position = projMat * (gl_in[2].gl_Position + face_norm * offset * (i + 1) * (sin(time)-0.5));\n\
-		vert_g_Normal = vert_Normal[2];\n\
-		EmitVertex();\n\
-		EndPrimitive();\n\
-	}\n\
-}\n\
-";
-
 const char* cube_fragShader =
 "#version 330\n\
-in vec4 vert_g_Normal;\n\
+in vec4 vert_Normal;\n\
 out vec4 out_Color;\n\
 uniform mat4 mv_Mat;\n\
 uniform vec4 color;\n\
 void main() {\n\
-	out_Color = vec4(color.xyz * dot(vert_g_Normal, mv_Mat*vec4(0.0, 1.0, 0.0, 0.0)) + color.xyz * 0.3, 1.0 );\n\
+	out_Color = vec4(color.xyz * dot(vert_Normal, mv_Mat*vec4(0.0, 1.0, 0.0, 0.0)) + color.xyz * 0.3, 1.0 );\n\
 }";
 void setupCube() {
 	glGenVertexArrays(1, &cubeVao);
@@ -417,12 +311,10 @@ void setupCube() {
 
 	cubeShaders[0] = compileShader(cube_vertShader, GL_VERTEX_SHADER, "cubeVert");
 	cubeShaders[1] = compileShader(cube_fragShader, GL_FRAGMENT_SHADER, "cubeFrag");
-	cubeShaders[2] = compileShader(cube_geomShader, GL_GEOMETRY_SHADER, "cubeGeom");
 
 	cubeProgram = glCreateProgram();
 	glAttachShader(cubeProgram, cubeShaders[0]);
 	glAttachShader(cubeProgram, cubeShaders[1]);
-	glAttachShader(cubeProgram, cubeShaders[2]);
 	glBindAttribLocation(cubeProgram, 0, "in_Position");
 	glBindAttribLocation(cubeProgram, 1, "in_Normal");
 	linkProgram(cubeProgram);
@@ -434,7 +326,6 @@ void cleanupCube() {
 	glDeleteProgram(cubeProgram);
 	glDeleteShader(cubeShaders[0]);
 	glDeleteShader(cubeShaders[1]);
-	glDeleteShader(cubeShaders[2]);
 }
 void updateCube(const glm::mat4& transform) {
 	objMat = transform;
@@ -443,15 +334,10 @@ void drawCube() {
 	glEnable(GL_PRIMITIVE_RESTART);
 	glBindVertexArray(cubeVao);
 	glUseProgram(cubeProgram);
-
-	static float time = 0;
-	time += 0.006;
-
 	glUniformMatrix4fv(glGetUniformLocation(cubeProgram, "objMat"), 1, GL_FALSE, glm::value_ptr(objMat));
 	glUniformMatrix4fv(glGetUniformLocation(cubeProgram, "mv_Mat"), 1, GL_FALSE, glm::value_ptr(RenderVars::_modelView));
-	glUniformMatrix4fv(glGetUniformLocation(cubeProgram, "projMat"), 1, GL_FALSE, glm::value_ptr(RenderVars::_projection));
-	glUniform1f(glGetUniformLocation(cubeProgram, "time"), time);
-	glUniform4f(glGetUniformLocation(cubeProgram, "color"), objCol[0], objCol[1], objCol[2], objCol[3]);
+	glUniformMatrix4fv(glGetUniformLocation(cubeProgram, "mvpMat"), 1, GL_FALSE, glm::value_ptr(RenderVars::_MVP));
+	glUniform4f(glGetUniformLocation(cubeProgram, "color"), 0.1f, 1.f, 1.f, 0.f);
 	glDrawElements(GL_TRIANGLE_STRIP, numVerts, GL_UNSIGNED_BYTE, 0);
 
 	glUseProgram(0);
@@ -462,140 +348,6 @@ void drawCube() {
 
 /////////////////////////////////////////////////
 
-namespace Object {
-	GLuint objectVao;
-	GLuint objectVbo[2];
-	GLuint objectShaders[2];
-	GLuint objectProgram;
-	glm::mat4 objMat = glm::mat4(1.f);
-	float k_amb = 0.f;
-	float k_dif = 0.f;
-	float k_spe = 0.f;
-	float light_pos[3] = { 5.f,10.f,0.f };
-	int dollyEffect = 0;
-
-	int spec_pow;
-	glm::vec3 light_col;
-
-	const char* object_vertShader =
-		"#version 330\n\
-in vec3 in_Position;\n\
-in vec3 in_Normal;\n\
-out vec4 vert_Normal;\n\
-out vec3 out_Position;\n\
-uniform mat4 objMat;\n\
-uniform mat4 mv_Mat;\n\
-uniform mat4 mvpMat;\n\
-void main() {\n\
-	gl_Position = mvpMat * objMat * vec4(in_Position, 1.0);\n\
-	vert_Normal = mv_Mat * objMat * vec4(in_Normal, 0.0);\n\
-	out_Position = vec3(mv_Mat * objMat * vec4(in_Position, 1.0));\n\
-}";
-	const char* object_fragShader =
-		"#version 330\n\
-in vec4 vert_Normal;\n\
-in vec3 out_Position;\n\
-out vec3 out_Color;\n\
-uniform mat4 mv_Mat;\n\
-uniform vec3 color;\n\
-uniform float k_amb;\n\
-uniform float k_dif;\n\
-uniform float k_spe;\n\
-uniform int spec_pow;\n\
-uniform vec3 light_pos;\n\
-uniform vec3 light_col;\n\
-uniform vec3 camera_pos;\n\
-uniform vec3 ambient_col;\n\
-void main() {\n\
-	vec3 l = normalize( vec3(mv_Mat * vec4(light_pos, 1.f)) - out_Position );\n\
-	vec3 dif_color = k_dif * light_col * clamp ( dot( vec3(vert_Normal), l ), 0.f, 1.f );\n\
-\n\
-	vec3 amb_col = ambient_col * k_amb;\n\
-\n\
-	vec3 E = normalize( camera_pos - out_Position );\n\
-	vec3 R = reflect( -l, vec3(vert_Normal) );\n\
-	vec3 spec_col = k_spe * light_col * pow( clamp( dot( E, R ), 0.f, 1.f ), spec_pow );\n\
-\n\
-	out_Color = color * (dif_color + amb_col + spec_col);\n\
-}";
-	void setupObject() {
-		std::vector<glm::vec3> verts, norms;
-		std::vector<glm::vec2> uvs;
-		loadOBJ("object.obj", verts, uvs, norms);
-
-		k_amb = k_dif = .5f;
-		k_spe = 1.f;
-		spec_pow = 30;
-		light_col = { 1.f, 1.f, 1.f };
-
-		glGenVertexArrays(1, &objectVao);
-		glBindVertexArray(objectVao);
-		glGenBuffers(2, objectVbo);
-
-		glBindBuffer(GL_ARRAY_BUFFER, objectVbo[0]);
-		glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec3) * verts.size(), verts.data(), GL_STATIC_DRAW);///////////
-		glVertexAttribPointer((GLuint)0, 3, GL_FLOAT, GL_FALSE, 0, 0);
-		glEnableVertexAttribArray(0);
-
-		glBindBuffer(GL_ARRAY_BUFFER, objectVbo[1]);
-		glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec3) * norms.size(), norms.data(), GL_STATIC_DRAW);////////////////
-		glVertexAttribPointer((GLuint)1, 3, GL_FLOAT, GL_FALSE, 0, 0);
-		glEnableVertexAttribArray(1);
-
-		glBindVertexArray(0);
-		glBindBuffer(GL_ARRAY_BUFFER, 0);
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-
-		objectShaders[0] = compileShader(object_vertShader, GL_VERTEX_SHADER, "objectVert");
-		objectShaders[1] = compileShader(object_fragShader, GL_FRAGMENT_SHADER, "objectFrag");
-
-		objectProgram = glCreateProgram();
-		glAttachShader(objectProgram, objectShaders[0]);
-		glAttachShader(objectProgram, objectShaders[1]);
-		glBindAttribLocation(objectProgram, 0, "in_Position");
-		glBindAttribLocation(objectProgram, 1, "in_Normal");
-		linkProgram(objectProgram);
-	}
-	void cleanupObject() {
-		glDeleteBuffers(2, objectVbo);
-		glDeleteVertexArrays(1, &objectVao);
-
-		glDeleteProgram(objectProgram);
-		glDeleteShader(objectShaders[0]);
-		glDeleteShader(objectShaders[1]);
-	}
-	void updateObject(const glm::mat4& transform) {
-		objMat = transform;
-	}
-	void drawObject() {
-		glBindVertexArray(objectVao);
-		glUseProgram(objectProgram);
-
-
-
-		glUniformMatrix4fv(glGetUniformLocation(objectProgram, "objMat"), 1, GL_FALSE, glm::value_ptr(objMat));
-		glUniformMatrix4fv(glGetUniformLocation(objectProgram, "mv_Mat"), 1, GL_FALSE, glm::value_ptr(RenderVars::_modelView));
-		glUniformMatrix4fv(glGetUniformLocation(objectProgram, "mvpMat"), 1, GL_FALSE, glm::value_ptr(RenderVars::_MVP));
-		glUniform3f(glGetUniformLocation(objectProgram, "color"), 0.2, 0.2, 0.2);
-
-		glUniform1f(glGetUniformLocation(objectProgram, "k_amb"), k_amb);
-		glUniform1f(glGetUniformLocation(objectProgram, "k_dif"), k_dif);
-		glUniform1f(glGetUniformLocation(objectProgram, "k_spe"), k_spe);
-		glUniform1i(glGetUniformLocation(objectProgram, "spec_pow"), spec_pow);
-		glUniform3f(glGetUniformLocation(objectProgram, "light_pos"), light_pos[0], light_pos[1], light_pos[2]);
-		glUniform3f(glGetUniformLocation(objectProgram, "light_col"), light_col[0], light_col[1], light_col[2]);
-		glUniform3f(glGetUniformLocation(objectProgram, "ambient_col"), 0.1f, 0.1f, 0.1f);
-		glUniform3f(glGetUniformLocation(objectProgram, "camera_pos"), RV::_cameraPoint.x, RV::_cameraPoint.y, RV::_cameraPoint.z);
-
-
-		glDrawArrays(GL_TRIANGLES, 0, 14000); 
-
-		glUseProgram(0);
-		glBindVertexArray(0);
-	}
-}
-
-//////////////////////////////////////////////////////////////////////////
 
 void GLinit(int width, int height) {
 	glViewport(0, 0, width, height);
@@ -616,7 +368,6 @@ void GLinit(int width, int height) {
 	// Do your init code here
 	// ...
 	// ...
-	Object::setupObject();
 	// ...
 	/////////////////////////////////////////////////////////
 }
@@ -628,68 +379,26 @@ void GLcleanup() {
 	/////////////////////////////////////////////////////TODO
 	// Do your cleanup code here
 	// ...
-	Object::cleanupObject();
 	// ...
 	// ...
 	/////////////////////////////////////////////////////////
 }
 
-float timeCounter = 0;
-
 void GLrender(float dt) {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-	
+	RV::_modelView = glm::mat4(1.f);
+	RV::_modelView = glm::translate(RV::_modelView, glm::vec3(RV::panv[0], RV::panv[1], RV::panv[2]));
+	RV::_modelView = glm::rotate(RV::_modelView, RV::rota[1], glm::vec3(1.f, 0.f, 0.f));
+	RV::_modelView = glm::rotate(RV::_modelView, RV::rota[0], glm::vec3(0.f, 1.f, 0.f));
 
 	RV::_MVP = RV::_projection * RV::_modelView;
 
 	Axis::drawAxis();
-
+	Cube::drawCube();
 	/////////////////////////////////////////////////////TODO
 	// Do your render code here
 	// ...
-
-	Object::drawObject();
-
-	for (int i = 0; i < 11; i++) {
-		Cube::updateCube(glm::mat4(1.f));
-		Cube::updateCube(glm::translate(Cube::objMat, glm::vec3(-5.f, 9.f, 14.f - 3*i)));
-		Cube::updateCube(glm::scale(Cube::objMat, glm::vec3(2)));
-		Cube::drawCube();
-	}
-
-	timeCounter += dt;
-	if (Object::dollyEffect == 1) {
-		RV::_modelView = glm::mat4(1.f);
-		glm::vec3 position = glm::vec3(15 + 2 * (sin(timeCounter) * 2 - 1), 8, 0);
-		RV::_modelView = glm::translate(RV::_modelView, position);
-		RV::_modelView = glm::lookAt(position, position + glm::vec3(-1, 0, 0), glm::vec3(0, 1, 0));
-	}
-	else if (Object::dollyEffect == 2) {
-		glm::vec3 position = glm::vec3(15 + 2 * (sin(timeCounter) * 2 - 1), 8, 0);
-		RV::_modelView = glm::translate(RV::_modelView, glm::vec3(10, 8, 0));
-		RV::FOV = glm::asin(8 / glm::length(position)) * 2;
-		RV::_projection = glm::perspective(RV::FOV, (float)4/3, RV::zNear, RV::zFar);
-		RV::_modelView = glm::lookAt(glm::vec3(10, 8, 0), glm::vec3(10, 8, 0) + glm::vec3(-1, 0, 0), glm::vec3(0, 1, 0));
-	}
-	else if (Object::dollyEffect == 3) {
-		RV::_modelView = glm::mat4(1.f);
-		glm::vec3 position = glm::vec3(15 + 2 * (sin(timeCounter) * 2 - 1), 8, 0);
-		RV::_modelView = glm::translate(RV::_modelView, position);
-		RV::_modelView = glm::lookAt(position, position + glm::vec3(-1, 0, 0), glm::vec3(0, 1, 0));
-		RV::FOV = glm::asin(8 / glm::length(position)) * 2;
-		RV::_projection = glm::perspective(RV::FOV, (float)4 / 3, RV::zNear, RV::zFar);
-	}
-	else {
-		RV::_modelView = glm::mat4(1.f);
-		RV::_modelView = glm::translate(RV::_modelView, glm::vec3(RV::panv[0], RV::panv[1], RV::panv[2]));
-		RV::_modelView = glm::rotate(RV::_modelView, RV::rota[1], glm::vec3(1.f, 0.f, 0.f));
-		RV::_modelView = glm::rotate(RV::_modelView, RV::rota[0], glm::vec3(0.f, 1.f, 0.f));
-		RV::FOV = glm::radians(75.f);
-		RV::_projection = glm::perspective(RV::FOV, (float)4 / 3, RV::zNear, RV::zFar);
-	}
-
-
 	// ...
 	// ...
 	/////////////////////////////////////////////////////////
@@ -708,15 +417,6 @@ void GUI() {
 		// Do your GUI code here....
 		// ...
 		// ...
-		ImGui::DragFloat("k Diffuse", &Object::k_dif, 0.005f,0,1);
-		ImGui::DragFloat("k Specular", &Object::k_amb, 0.005f,0,1);
-		ImGui::DragFloat("k Ambiental", &Object::k_spe, 0.005f,0,1);
-		ImGui::DragFloat3("Light Position", Object::light_pos);
-		if (ImGui::Button("Dolly Effect")) {
-			Object::dollyEffect++;
-			if (Object::dollyEffect >= 4)
-				Object::dollyEffect = 0;
-		}
 		// ...
 		/////////////////////////////////////////////////////////
 	}
