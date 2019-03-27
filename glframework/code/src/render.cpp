@@ -360,7 +360,7 @@ void main() {\n\
 const char* cube_geomShader =
 "#version 330\n\
 layout(triangles) in;\n\
-layout(triangle_strip, max_vertices=12) out;\n\
+layout(triangle_strip, max_vertices=24) out;\n\
 in vec4 vert_Normal[];\n\
 out vec4 vert_g_Normal;\n\
 uniform mat4 projMat;\n\
@@ -368,7 +368,7 @@ uniform float time;\n\
 float offset = 0.2;\n\
 void main() {\n\
 	vec4 face_norm = (vert_Normal[0] + vert_Normal[1] + vert_Normal[2]) / 3.0;\n\
-	for (int i=0; i < 1; i++) {\n\
+	for (int i=0; i < 8; i++) {\n\
 		gl_Position = projMat * (gl_in[0].gl_Position + face_norm * offset * (i + 1) * (sin(time)-0.5));\n\
 		vert_g_Normal = vert_Normal[0];\n\
 		EmitVertex();\n\
@@ -450,7 +450,7 @@ void drawCube() {
 	glUniformMatrix4fv(glGetUniformLocation(cubeProgram, "objMat"), 1, GL_FALSE, glm::value_ptr(objMat));
 	glUniformMatrix4fv(glGetUniformLocation(cubeProgram, "mv_Mat"), 1, GL_FALSE, glm::value_ptr(RenderVars::_modelView));
 	glUniformMatrix4fv(glGetUniformLocation(cubeProgram, "projMat"), 1, GL_FALSE, glm::value_ptr(RenderVars::_projection));
-	glUniform1f(glGetUniformLocation(cubeProgram, "time"), 0.5);
+	glUniform1f(glGetUniformLocation(cubeProgram, "time"), time);
 	glUniform4f(glGetUniformLocation(cubeProgram, "color"), objCol[0], objCol[1], objCol[2], objCol[3]);
 	glDrawElements(GL_TRIANGLE_STRIP, numVerts, GL_UNSIGNED_BYTE, 0);
 
