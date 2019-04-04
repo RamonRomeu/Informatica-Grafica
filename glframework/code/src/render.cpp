@@ -4,6 +4,9 @@
 #include <cstdio>
 #include <cassert>
 
+#define STB_IMAGE_IMPLEMENTATION
+#include <stb_image/stb_image.h>
+
 #include <imgui\imgui.h>
 #include <imgui\imgui_impl_sdl_gl3.h>
 
@@ -205,13 +208,13 @@ void drawAxis() {
 //////////////////////////////////////////////////////////////////////////
 namespace Point {
 	GLuint pointVao;
-	GLuint pointVbo[1];
+	GLuint pointVbo[20];
 	GLuint pointShaders[3];
 	GLuint pointProgram;
 
-	glm::vec3 points[1] = { glm::vec3(0, 0, 0) };
+	glm::vec3 points[20];
 
-	int numVerts = 1;
+	int numVerts = 20;
 
 	const char* point_vertShader =
 		"#version 330\n\
@@ -333,6 +336,10 @@ void main() {\n\
 }";
 
 	void setupPoint() {
+		for (int i = 0; i < 20; i++) {
+			points[i] = glm::vec3(rand() % 1000 / 100, rand() % 1000 / 100, rand() % 1000 / 100);
+		}
+
 		glGenVertexArrays(1, &pointVao);
 		glBindVertexArray(pointVao);
 		glGenBuffers(1, pointVbo);
@@ -460,6 +467,7 @@ void main() {\n\
 	out_Color = vec4(color.xyz * dot(vert_Normal, mv_Mat*vec4(0.0, 1.0, 0.0, 0.0)) + color.xyz * 0.3, 1.0 );\n\
 }";
 void setupCube() {
+
 	glGenVertexArrays(1, &cubeVao);//
 	glBindVertexArray(cubeVao);
 	glGenBuffers(3, cubeVbo);
