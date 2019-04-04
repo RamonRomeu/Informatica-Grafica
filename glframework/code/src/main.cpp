@@ -8,12 +8,16 @@
 #include "GL_framework.h"
 
 
+extern void PhysicsInit();
+extern void PhysicsUpdate(float dt);
+extern void PhysicsCleanup();
 extern void GUI();
+
 extern void GLmousecb(MouseEvent ev);
 extern void GLResize(int width, int height);
 extern void GLinit(int width, int height);
 extern void GLcleanup();
-extern void GLrender(float dt);
+extern void GLrender();
 
 //////
 namespace {
@@ -52,7 +56,7 @@ int main(int argc, char** argv) {
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
 	SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
-	SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24); //Bits of Depth buffer
+	SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
 
 	mainwindow = SDL_CreateWindow("GL_framework", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
 		800, 600, SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE);
@@ -77,9 +81,9 @@ int main(int argc, char** argv) {
 
 	int display_w, display_h;
 	SDL_GL_GetDrawableSize(mainwindow, &display_w, &display_h);
-
 	// Init scene
 	GLinit(display_w, display_h);
+	PhysicsInit();
 	// Setup ImGui binding
 	ImGui_ImplSdlGL3_Init(mainwindow);
 
@@ -103,6 +107,7 @@ int main(int argc, char** argv) {
 
 		ImGuiIO& io = ImGui::GetIO();
 		GUI();
+		PhysicsUpdate((float)expected_frametime);
 		if(!io.WantCaptureMouse) {
 			MouseEvent ev = {io.MousePos.x, io.MousePos.y, 
 				(io.MouseDown[0] ? MouseEvent::Button::Left : 
@@ -111,15 +116,14 @@ int main(int argc, char** argv) {
 				MouseEvent::Button::None)))};
 			GLmousecb(ev);
 		}
-		GLrender((float)expected_frametime);
+		GLrender();
 
 		SDL_GL_SwapWindow(mainwindow);
 		waitforFrameEnd();
 	}
 
+	PhysicsCleanup();
 	ImGui_ImplSdlGL3_Shutdown();
-	GLcleanup();
-
 	SDL_GL_DeleteContext(maincontext);
 	SDL_DestroyWindow(mainwindow);
 	SDL_Quit();
