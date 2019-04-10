@@ -207,7 +207,7 @@ void drawAxis() {
 }
 
 //////////////////////////////////////////////////////////////////////////
-namespace Point {
+namespace Ex1 {
 	GLuint pointVao;
 	GLuint pointVbo[20];
 	GLuint pointShaders[3];
@@ -232,6 +232,8 @@ layout(triangle_strip, max_vertices = 72) out;\n\
 out vec4 vert_g_normal;\n\
 uniform mat4 mv_Mat;\n\
 uniform mat4 mvp;\n\
+uniform float h;\n\
+uniform float cubeDiagonal;\n\
 vec4 vertex[24];\n\
 \n\
 void createSquare(int index) {\n\
@@ -275,9 +277,6 @@ void createHexagon(int v1, int v2, int v3, int v4, int v5, int v6) {\n\
 }\n\
 \n\
 void main() {\n\
-	float a = 1.f;\n\
-	float h = 2 * sqrt(2) / 2 * a;\n\
-	float cubeDiagonal = sqrt(2 * pow(a, 2));\n\
 \n\
 	vertex[0] = gl_in[0].gl_Position + vec4(0, h, cubeDiagonal/2, 0);\n\
 	vertex[1] = gl_in[0].gl_Position + vec4(cubeDiagonal/2, h, 0, 0);\n\
@@ -377,6 +376,9 @@ void main() {\n\
 		glUniformMatrix4fv(glGetUniformLocation(pointProgram, "mvp"), 1, GL_FALSE, glm::value_ptr(RenderVars::_MVP));
 		glUniformMatrix4fv(glGetUniformLocation(pointProgram, "mv_Mat"), 1, GL_FALSE, glm::value_ptr(RenderVars::_modelView));
 		glUniform4f(glGetUniformLocation(pointProgram, "color"), 0.1f, 1.f, 1.f, 0.f);
+		float a = 1.f;
+		glUniform1f(glGetUniformLocation(pointProgram, "h"), 2 * glm::sqrt(2) / 2 * a);
+		glUniform1f(glGetUniformLocation(pointProgram, "cubeDiagonal"), glm::sqrt(2 * glm::pow(a, 2)));
 		//glDrawElements(GL_POINTS, numVerts, GL_UNSIGNED_BYTE, 0);
 		glDrawArrays(GL_POINTS, 0, numVerts);
 
@@ -399,6 +401,259 @@ void main() {\n\
 	}
 }
 
+namespace Ex2 {
+	GLuint pointVao;
+	GLuint pointVbo[20];
+	GLuint pointShaders[3];
+	GLuint pointProgram;
+
+	const int numVerts = 10;
+	float a = 1.f;
+
+	glm::vec3 points[numVerts];
+	glm::vec3 directions[numVerts];
+
+	const char* point_vertShader =
+		"#version 330\n\
+in vec3 in_Position;\n\
+void main() {\n\
+	gl_Position = vec4(in_Position, 1);\n\
+}";
+
+	const char* point_geomShader =
+		"#version 330\n\
+layout(points) in;\n\
+layout(triangle_strip, max_vertices = 108) out;\n\
+out vec4 vert_g_normal;\n\
+uniform mat4 mv_Mat;\n\
+uniform mat4 mvp;\n\
+uniform float h;\n\
+uniform float cubeDiagonal;\n\
+uniform float movement;\n\
+vec4 vertex[48];\n\
+\n\
+void createSquare(int index) {\n\
+	vec4 face_normal = mv_Mat * vec4(normalize(cross(vertex[index + 1].xyz-vertex[index].xyz, vertex[index + 2].xyz-vertex[index].xyz)), 0);\n\
+	for (int i = 0; i < 8; i++) {\n\
+		gl_Position = mvp * vertex[index + i];\n\
+		vert_g_normal = face_normal;\n\
+		EmitVertex();\n\
+	}\n\
+	EndPrimitive();\n\
+}; \n\
+\n\
+void createHexagon(int v1, int v2, int v3, int v4, int v5, int v6) {\n\
+	vec4 face_normal = mv_Mat * vec4(normalize(cross(vertex[v2].xyz-vertex[v1].xyz, vertex[v3].xyz-vertex[v1].xyz)), 0);\n\
+	vec4 centerVec[6];\n\
+\n\
+	centerVec[0] = (vertex[v6]-vertex[v1]) / 2;\n\
+	centerVec[1] = (vertex[v5]-vertex[v2]) / 2;\n\
+	centerVec[2] = (vertex[v4]-vertex[v3]) / 2;\n\
+	centerVec[3] = -centerVec[2];\n\
+	centerVec[4] = -centerVec[1];\n\
+	centerVec[5] = -centerVec[0];\n\
+\n\
+	gl_Position = mvp * (vertex[v1] + movement * centerVec[0]);\n\
+	vert_g_normal = face_normal;\n\
+	EmitVertex();\n\
+\n\
+	gl_Position = mvp * (vertex[v2] + movement * centerVec[1]);\n\
+	vert_g_normal = face_normal;\n\
+	EmitVertex();\n\
+\n\
+	gl_Position = mvp * (vertex[v3] + movement * centerVec[2]);\n\
+	vert_g_normal = face_normal;\n\
+	EmitVertex();\n\
+\n\
+	gl_Position = mvp * (vertex[v4]  + movement * centerVec[3]);\n\
+	vert_g_normal = face_normal;\n\
+	EmitVertex();\n\
+\n\
+	gl_Position = mvp * (vertex[v5]  + movement * centerVec[4]);\n\
+	vert_g_normal = face_normal;\n\
+	EmitVertex();\n\
+\n\
+	gl_Position = mvp * (vertex[v6] + movement * centerVec[5]);\n\
+	vert_g_normal = face_normal;\n\
+	EmitVertex();\n\
+\n\
+	EndPrimitive();\n\
+}\n\
+\n\
+void main() {\n\
+\n\
+	vertex[0] = gl_in[0].gl_Position + vec4(0, h, cubeDiagonal/2, 0);\n\
+	vertex[1] = vertex[0];\n\
+	vertex[2] = gl_in[0].gl_Position + vec4(cubeDiagonal/2, h, 0, 0);\n\
+	vertex[3] = gl_in[0].gl_Position + vec4(-cubeDiagonal/2, h, 0, 0);\n\
+	vertex[4] = vertex[2];\n\
+	vertex[5] = vertex[3];\n\
+	vertex[6] = gl_in[0].gl_Position + vec4(0, h, -cubeDiagonal/2, 0);\n\
+	vertex[7] = vertex[6];\n\
+\n\
+	vertex[8] = gl_in[0].gl_Position + vec4(0, -h, cubeDiagonal/2, 0);\n\
+	vertex[9] = vertex[8];\n\
+	vertex[10] = gl_in[0].gl_Position + vec4(-cubeDiagonal/2, -h, 0, 0);\n\
+	vertex[11] = gl_in[0].gl_Position + vec4(cubeDiagonal/2, -h, 0, 0);\n\
+	vertex[12] = vertex[10];\n\
+	vertex[13] = vertex[11];\n\
+	vertex[14] = gl_in[0].gl_Position + vec4(0, -h, -cubeDiagonal/2, 0);\n\
+	vertex[15] = vertex[14];\n\
+\n\
+	vertex[16] = gl_in[0].gl_Position + vec4(-h, 0, cubeDiagonal/2, 0);\n\
+	vertex[17] = vertex[16];\n\
+	vertex[18] = gl_in[0].gl_Position + vec4(-h, cubeDiagonal/2, 0, 0);\n\
+	vertex[19] = gl_in[0].gl_Position + vec4(-h, -cubeDiagonal/2, 0, 0);\n\
+	vertex[20] = vertex[18];\n\
+	vertex[21] = vertex[19];\n\
+	vertex[22] = gl_in[0].gl_Position + vec4(-h, 0, -cubeDiagonal/2, 0);\n\
+	vertex[23] = vertex[22];\n\
+\n\
+	vertex[24] = gl_in[0].gl_Position + vec4(h, 0, cubeDiagonal/2, 0);\n\
+	vertex[25] = vertex[24];\n\
+	vertex[26] = gl_in[0].gl_Position + vec4(h, -cubeDiagonal/2, 0, 0);\n\
+	vertex[27] = gl_in[0].gl_Position + vec4(h, cubeDiagonal/2, 0, 0);\n\
+	vertex[28] = vertex[26];\n\
+	vertex[29] = vertex[27];\n\
+	vertex[30] = gl_in[0].gl_Position + vec4(h, 0, -cubeDiagonal/2, 0);\n\
+	vertex[31] = vertex[30];\n\
+\n\
+	vertex[32] = gl_in[0].gl_Position + vec4(0, -cubeDiagonal/2, h, 0);\n\
+	vertex[33] = vertex[32];\n\
+	vertex[34] = gl_in[0].gl_Position + vec4(cubeDiagonal/2, 0, h, 0);\n\
+	vertex[35] = gl_in[0].gl_Position + vec4(-cubeDiagonal/2, 0, h, 0);\n\
+	vertex[36] = vertex[34];\n\
+	vertex[37] = vertex[35];\n\
+	vertex[38] = gl_in[0].gl_Position + vec4(0, +cubeDiagonal/2, h, 0);\n\
+	vertex[39] = vertex[38];\n\
+\n\
+	vertex[40] = gl_in[0].gl_Position + vec4(0, -cubeDiagonal/2, -h, 0);\n\
+	vertex[41] = vertex[40];\n\
+	vertex[42] = gl_in[0].gl_Position + vec4(-cubeDiagonal/2, 0, -h, 0);\n\
+	vertex[43] = gl_in[0].gl_Position + vec4(cubeDiagonal/2, 0, -h, 0);\n\
+	vertex[44] = vertex[42];\n\
+	vertex[45] = vertex[43];\n\
+	vertex[46] = gl_in[0].gl_Position + vec4(0, +cubeDiagonal/2, -h, 0);\n\
+	vertex[47] = vertex[46];\n\
+\n\
+	createHexagon(1, 38, 3, 37, 26, 24);\n\
+	createHexagon(0, 2, 39, 19, 36, 17);\n\
+	createHexagon(4, 6, 21, 47, 23, 45);\n\
+	createHexagon(5, 28, 7, 30, 46, 44);\n\
+	createHexagon(35, 33, 25, 8, 27, 10);\n\
+	createHexagon(34, 16, 32, 18, 9, 11);\n\
+	createHexagon(31, 29, 42, 12, 40, 14);\n\
+	createHexagon(22, 43, 20, 41, 13, 15);\n\
+\n\
+	createSquare(0);\n\
+	createSquare(8);\n\
+	createSquare(16);\n\
+	createSquare(24);\n\
+	createSquare(32);\n\
+	createSquare(40);\n\
+}";
+
+	const char* point_fragShader =
+		"#version 330\n\
+in vec4 vert_g_normal;\n\
+out vec4 out_Color;\n\
+uniform mat4 mv_Mat;\n\
+uniform vec4 color;\n\
+void main() {\n\
+	out_Color = vec4(color.xyz * dot(vert_g_normal, mv_Mat*vec4(1.0, 0.5, 0.0, 0.0)) + color.xyz * 0.3, 1.0 );\n\
+	//out_Color = (mv_Mat * vert_g_normal) * 0.5 + 0.5;\n\
+}";
+	void updatePos() {
+		float height = 2 * (2 * glm::sqrt(2) / 2 * a);
+		points[0] = { 0, 0, 0 };
+		points[1] = { height, 0, 0 };
+		points[2] = { height * 2, 0, 0 };
+		points[3] = { 0, 0, height };
+		points[4] = { height, 0, height };
+		points[5] = { height * 2, 0, height };
+
+		points[6] = { height * 0.5, height * 0.5, height * 0.5 };
+		points[7] = { height * 1.5, height * 0.5, height * 1.5 };
+
+		points[8] = { height * 0.5, height * -0.5, height * 0.5 };
+		points[9] = { height * 1.5, height * -0.5, height * 1.5 };
+	
+	}
+
+	void setupPoint() {
+		float height = 2 * (2 * glm::sqrt(2) / 2 * a);
+		points[0] = { 0, 0, 0 };
+		points[1] = { height, 0, 0 };
+		points[2] = { height * 2, 0, 0 };
+		points[3] = { 0, 0, height };
+		points[4] = { height, 0, height };
+		points[5] = { height * 2, 0, height };
+
+		points[6] = { height * 0.5, height * 0.5, height * 0.5 };
+		points[7] = { height * 1.5, height * 0.5, height * 0.5 };
+
+		points[8] = { height * 0.5, height * -0.5, height * 0.5 };
+		points[9] = { height * 1.5, height * -0.5, height * 0.5 };
+
+		glGenVertexArrays(1, &pointVao);
+		glBindVertexArray(pointVao);
+		glGenBuffers(1, pointVbo);
+
+		glBindBuffer(GL_ARRAY_BUFFER, pointVbo[0]);
+		glBufferData(GL_ARRAY_BUFFER, sizeof(points), points, GL_STATIC_DRAW);
+		glVertexAttribPointer((GLuint)0, 3, GL_FLOAT, GL_FALSE, 0, 0);
+		glEnableVertexAttribArray(0);
+
+		pointShaders[0] = compileShader(point_vertShader, GL_VERTEX_SHADER, "pointVert");
+		pointShaders[1] = compileShader(point_geomShader, GL_GEOMETRY_SHADER, "pointGeom");
+		pointShaders[2] = compileShader(point_fragShader, GL_FRAGMENT_SHADER, "pointFrag");
+
+		pointProgram = glCreateProgram();
+		glAttachShader(pointProgram, pointShaders[0]);
+		glAttachShader(pointProgram, pointShaders[1]);
+		glAttachShader(pointProgram, pointShaders[2]);
+		glBindAttribLocation(pointProgram, 0, "in_Position");
+		linkProgram(pointProgram);
+	}
+	void cleanupPoint() {
+		glDeleteVertexArrays(1, &pointVao);
+
+		glDeleteProgram(pointProgram);
+		glDeleteShader(pointShaders[0]);
+		glDeleteShader(pointShaders[1]);
+		glDeleteShader(pointShaders[2]);
+	}
+	void drawPoint() {//////////////////////////////////////////////////////////////////////////TODO
+		glBindVertexArray(pointVao);
+		glUseProgram(pointProgram);
+		glUniformMatrix4fv(glGetUniformLocation(pointProgram, "mvp"), 1, GL_FALSE, glm::value_ptr(RenderVars::_MVP));
+		glUniformMatrix4fv(glGetUniformLocation(pointProgram, "mv_Mat"), 1, GL_FALSE, glm::value_ptr(RenderVars::_modelView));
+		glUniform4f(glGetUniformLocation(pointProgram, "color"), 0.1f, 1.f, 1.f, 0.f);
+		glUniform1f(glGetUniformLocation(pointProgram, "h"), 2 * glm::sqrt(2) / 2 * a);
+		glUniform1f(glGetUniformLocation(pointProgram, "cubeDiagonal"), glm::sqrt(2 * glm::pow(a, 2)));
+		glUniform1f(glGetUniformLocation(pointProgram, "movement"), 0);
+		//glDrawElements(GL_POINTS, numVerts, GL_UNSIGNED_BYTE, 0);
+		glDrawArrays(GL_POINTS, 0, numVerts);
+
+		glUseProgram(0);
+		glBindVertexArray(0);
+	}
+	void updatePoints(float dt) {
+		static float timer = 0;
+		timer += dt;
+
+		/*glBindBuffer(GL_ARRAY_BUFFER, pointVbo[0]);
+		float* buff = (float*)glMapBuffer(GL_ARRAY_BUFFER, GL_WRITE_ONLY);
+		for (int i = 0; i < numVerts; i++) {
+			for (int j = 0; j < 3; j++) {
+				buff[i * 3 + j] = points[i][j] + glm::sin(timer) * directions[i][j];
+			}
+		}
+		glUnmapBuffer(GL_ARRAY_BUFFER);
+		glBindBuffer(GL_ARRAY_BUFFER, 0);*/
+
+	}
+}
 ////////////////////////////////////////////////// CUBE
 namespace Cube {
 GLuint cubeVao;
@@ -559,29 +814,19 @@ void GLinit(int width, int height) {
 
 	RV::_projection = glm::perspective(RV::FOV, (float)width / (float)height, RV::zNear, RV::zFar);
 
-	// Setup shaders & geometry
+	
 	Axis::setupAxis();
-	Point::setupPoint();
+	//Ex1::setupPoint();
+	Ex2::setupPoint();
 
-
-	/////////////////////////////////////////////////////TODO
-	// Do your init code here
-	// ...
-	// ...
-	// ...
-	/////////////////////////////////////////////////////////
+	
 }
 
 void GLcleanup() {
 	Axis::cleanupAxis();
-	Point::cleanupPoint();
-
-	/////////////////////////////////////////////////////TODO
-	// Do your cleanup code here
-	// ...
-	// ...
-	// ...
-	/////////////////////////////////////////////////////////
+	//Ex1::cleanupPoint();
+	Ex2::cleanupPoint();
+	
 }
 
 void GLrender(float dt) {
@@ -596,15 +841,11 @@ void GLrender(float dt) {
 
 	Axis::drawAxis();
 
-	Point::updatePoints(dt);
+	//Ex1::updatePoints(dt);
+	//Ex1::drawPoint();
 
-	Point::drawPoint();
-	/////////////////////////////////////////////////////TODO
-	// Do your render code here
-	// ...
-	// ...
-	// ...
-	/////////////////////////////////////////////////////////
+	Ex2::updatePoints(dt);
+	Ex2::drawPoint();
 
 	ImGui::Render();
 }
