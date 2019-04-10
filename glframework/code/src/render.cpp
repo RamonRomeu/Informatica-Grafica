@@ -3,6 +3,7 @@
 #include <glm\gtc\matrix_transform.hpp>
 #include <cstdio>
 #include <cassert>
+#include <time.h>
 
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image/stb_image.h>
@@ -213,6 +214,7 @@ namespace Point {
 	GLuint pointProgram;
 
 	glm::vec3 points[20];
+	glm::vec3 directions[20];
 
 	int numVerts = 20;
 
@@ -337,7 +339,8 @@ void main() {\n\
 
 	void setupPoint() {
 		for (int i = 0; i < 20; i++) {
-			points[i] = glm::vec3(rand() % 1000 / 100, rand() % 1000 / 100, rand() % 1000 / 100);
+			points[i] = glm::vec3(rand() % 1000 / 100.f - 5, rand() % 1000 / 100.f - 5, rand() % 1000 / 100.f - 5);
+			directions[i] = glm::normalize(glm::vec3(rand() % 100 / 100.f, rand() % 100 / 100.f, rand() % 100 / 100.f));
 		}
 
 		glGenVertexArrays(1, &pointVao);
@@ -379,6 +382,20 @@ void main() {\n\
 
 		glUseProgram(0);
 		glBindVertexArray(0);
+	}
+	void updatePoints(float dt) {
+		static float timer = 0;
+		timer += dt;
+		
+		glBindBuffer(GL_ARRAY_BUFFER, pointVbo[0]);
+		float* buff = (float*)glMapBuffer(GL_ARRAY_BUFFER, GL_WRITE_ONLY);
+		for (int i = 0; i < 20; i++) {
+			for (int j = 0; j < 3; j++) {
+				buff[i * 3 + j] = points[i][j] + glm::sin(timer) * directions[i][j];
+			}
+		}
+		glUnmapBuffer(GL_ARRAY_BUFFER);
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
 	}
 }
 
@@ -531,6 +548,7 @@ void drawCube() {
 
 
 void GLinit(int width, int height) {
+	srand(time(NULL));
 	glViewport(0, 0, width, height);
 	glClearColor(0.2f, 0.2f, 0.2f, 1.f);
 	glClearDepth(1.f);
@@ -577,6 +595,9 @@ void GLrender(float dt) {
 	RV::_MVP = RV::_projection * RV::_modelView;
 
 	Axis::drawAxis();
+
+	Point::updatePoints(dt);
+
 	Point::drawPoint();
 	/////////////////////////////////////////////////////TODO
 	// Do your render code here
