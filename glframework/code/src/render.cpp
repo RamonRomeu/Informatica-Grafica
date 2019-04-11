@@ -233,126 +233,9 @@ namespace Ex1 {
 
 	glm::vec3 points[20];
 	glm::vec3 directions[20];
+	float movForce = 1.f;
 
 	int numVerts = 20;
-
-	const char* point_vertShader =
-		"#version 330\n\
-in vec3 in_Position;\n\
-void main() {\n\
-	gl_Position = vec4(in_Position, 1);\n\
-}";
-
-	const char* point_geomShader =
-		"#version 330\n\
-layout(points) in;\n\
-layout(triangle_strip, max_vertices = 72) out;\n\
-out vec4 vert_g_normal;\n\
-uniform mat4 mv_Mat;\n\
-uniform mat4 mvp;\n\
-uniform float h;\n\
-uniform float cubeDiagonal;\n\
-vec4 vertex[24];\n\
-\n\
-void createSquare(int index) {\n\
-	vec4 face_normal = mv_Mat * vec4(normalize(cross(vertex[index + 1].xyz-vertex[index].xyz, vertex[index + 2].xyz-vertex[index].xyz)), 0);\n\
-	for (int i = 0; i < 4; i++) {\n\
-		gl_Position = mvp * vertex[index + i];\n\
-		vert_g_normal = face_normal;\n\
-		EmitVertex();\n\
-	}\n\
-	EndPrimitive();\n\
-}; \n\
-\n\
-void createHexagon(int v1, int v2, int v3, int v4, int v5, int v6) {\n\
-	vec4 face_normal = mv_Mat * vec4(normalize(cross(vertex[v2].xyz-vertex[v1].xyz, vertex[v3].xyz-vertex[v1].xyz)), 0);\n\
-\n\
-	gl_Position = mvp * vertex[v1];\n\
-	vert_g_normal = face_normal;\n\
-	EmitVertex();\n\
-\n\
-	gl_Position = mvp * vertex[v2];\n\
-	vert_g_normal = face_normal;\n\
-	EmitVertex();\n\
-\n\
-	gl_Position = mvp * vertex[v3];\n\
-	vert_g_normal = face_normal;\n\
-	EmitVertex();\n\
-\n\
-	gl_Position = mvp * vertex[v4];\n\
-	vert_g_normal = face_normal;\n\
-	EmitVertex();\n\
-\n\
-	gl_Position = mvp * vertex[v5];\n\
-	vert_g_normal = face_normal;\n\
-	EmitVertex();\n\
-\n\
-	gl_Position = mvp * vertex[v6];\n\
-	vert_g_normal = face_normal;\n\
-	EmitVertex();\n\
-\n\
-	EndPrimitive();\n\
-}\n\
-\n\
-void main() {\n\
-\n\
-	vertex[0] = gl_in[0].gl_Position + vec4(0, h, cubeDiagonal/2, 0);\n\
-	vertex[1] = gl_in[0].gl_Position + vec4(cubeDiagonal/2, h, 0, 0);\n\
-	vertex[2] = gl_in[0].gl_Position + vec4(-cubeDiagonal/2, h, 0, 0);\n\
-	vertex[3] = gl_in[0].gl_Position + vec4(0, h, -cubeDiagonal/2, 0);\n\
-\n\
-	vertex[4] = gl_in[0].gl_Position + vec4(0, -h, cubeDiagonal/2, 0);\n\
-	vertex[5] = gl_in[0].gl_Position + vec4(-cubeDiagonal/2, -h, 0, 0);\n\
-	vertex[6] = gl_in[0].gl_Position + vec4(cubeDiagonal/2, -h, 0, 0);\n\
-	vertex[7] = gl_in[0].gl_Position + vec4(0, -h, -cubeDiagonal/2, 0);\n\
-\n\
-	vertex[8] = gl_in[0].gl_Position + vec4(-h, 0, cubeDiagonal/2, 0);\n\
-	vertex[9] = gl_in[0].gl_Position + vec4(-h, cubeDiagonal/2, 0, 0);\n\
-	vertex[10] = gl_in[0].gl_Position + vec4(-h, -cubeDiagonal/2, 0, 0);\n\
-	vertex[11] = gl_in[0].gl_Position + vec4(-h, 0, -cubeDiagonal/2, 0);\n\
-\n\
-	vertex[12] = gl_in[0].gl_Position + vec4(h, 0, cubeDiagonal/2, 0);\n\
-	vertex[13] = gl_in[0].gl_Position + vec4(h, -cubeDiagonal/2, 0, 0);\n\
-	vertex[14] = gl_in[0].gl_Position + vec4(h, cubeDiagonal/2, 0, 0);\n\
-	vertex[15] = gl_in[0].gl_Position + vec4(h, 0, -cubeDiagonal/2, 0);\n\
-\n\
-	vertex[16] = gl_in[0].gl_Position + vec4(0, -cubeDiagonal/2, h, 0);\n\
-	vertex[17] = gl_in[0].gl_Position + vec4(cubeDiagonal/2, 0, h, 0);\n\
-	vertex[18] = gl_in[0].gl_Position + vec4(-cubeDiagonal/2, 0, h, 0);\n\
-	vertex[19] = gl_in[0].gl_Position + vec4(0, +cubeDiagonal/2, h, 0);\n\
-\n\
-	vertex[20] = gl_in[0].gl_Position + vec4(0, -cubeDiagonal/2, -h, 0);\n\
-	vertex[21] = gl_in[0].gl_Position + vec4(-cubeDiagonal/2, 0, -h, 0);\n\
-	vertex[22] = gl_in[0].gl_Position + vec4(cubeDiagonal/2, 0, -h, 0);\n\
-	vertex[23] = gl_in[0].gl_Position + vec4(0, +cubeDiagonal/2, -h, 0);\n\
-\n\
-	createSquare(0);\n\
-	createSquare(4);\n\
-	createSquare(8);\n\
-	createSquare(12);\n\
-	createSquare(16);\n\
-	createSquare(20);\n\
-\n\
-	createHexagon(0, 19, 1, 17, 14, 12);\n\
-	createHexagon(0, 2, 19, 9, 18, 8);\n\
-	createHexagon(2, 3, 9, 23, 11, 21);\n\
-	createHexagon(1, 14, 3, 15, 23, 22);\n\
-	createHexagon(17, 16, 12, 4, 13, 6);\n\
-	createHexagon(18, 8, 16, 10, 4, 5);\n\
-	createHexagon(15, 13, 22, 6, 20, 7);\n\
-	createHexagon(11, 21, 10, 20, 5, 7);\n\
-}";
-
-	const char* point_fragShader =
-		"#version 330\n\
-in vec4 vert_g_normal;\n\
-out vec4 out_Color;\n\
-uniform mat4 mv_Mat;\n\
-uniform vec4 color;\n\
-void main() {\n\
-	out_Color = vec4(color.xyz * dot(vert_g_normal, mv_Mat*vec4(1.0, 0.5, 0.0, 0.0)) + color.xyz * 0.3, 1.0 );\n\
-	//out_Color = (mv_Mat * vert_g_normal) * 0.5 + 0.5;\n\
-}";
 
 	void setupPoint() {
 		for (int i = 0; i < 20; i++) {
@@ -369,9 +252,13 @@ void main() {\n\
 		glVertexAttribPointer((GLuint)0, 3, GL_FLOAT, GL_FALSE, 0, 0);
 		glEnableVertexAttribArray(0);
 
-		pointShaders[0] = compileShader(point_vertShader, GL_VERTEX_SHADER, "pointVert");
-		pointShaders[1] = compileShader(point_geomShader, GL_GEOMETRY_SHADER, "pointGeom");
-		pointShaders[2] = compileShader(point_fragShader, GL_FRAGMENT_SHADER, "pointFrag");
+		std::string shader;
+		readShader("Ex1_vertShader.txt", shader);
+		pointShaders[0] = compileShader(shader.c_str(), GL_VERTEX_SHADER, "pointVert");
+		readShader("Ex1_geomShader.txt", shader);
+		pointShaders[1] = compileShader(shader.c_str(), GL_GEOMETRY_SHADER, "pointGeom");
+		readShader("Ex1_fragShader.txt", shader);
+		pointShaders[2] = compileShader(shader.c_str(), GL_FRAGMENT_SHADER, "pointFrag");
 
 		pointProgram = glCreateProgram();
 		glAttachShader(pointProgram, pointShaders[0]);
@@ -387,6 +274,27 @@ void main() {\n\
 		glDeleteShader(pointShaders[0]);
 		glDeleteShader(pointShaders[1]);
 		glDeleteShader(pointShaders[2]);
+	}
+	void updateShaders() {
+		glDeleteProgram(pointProgram);
+		glDeleteShader(pointShaders[0]);
+		glDeleteShader(pointShaders[1]);
+		glDeleteShader(pointShaders[2]);
+
+		std::string shader;
+		readShader("Ex2_vertShader.txt", shader);
+		pointShaders[0] = compileShader(shader.c_str(), GL_VERTEX_SHADER, "pointVert");
+		readShader("Ex2_geomShader.txt", shader);
+		pointShaders[1] = compileShader(shader.c_str(), GL_GEOMETRY_SHADER, "pointGeom");
+		readShader("Ex2_fragShader.txt", shader);
+		pointShaders[2] = compileShader(shader.c_str(), GL_FRAGMENT_SHADER, "pointFrag");
+
+		pointProgram = glCreateProgram();
+		glAttachShader(pointProgram, pointShaders[0]);
+		glAttachShader(pointProgram, pointShaders[1]);
+		glAttachShader(pointProgram, pointShaders[2]);
+		glBindAttribLocation(pointProgram, 0, "in_Position");
+		linkProgram(pointProgram);
 	}
 	void drawPoint() {//////////////////////////////////////////////////////////////////////////TODO
 		glBindVertexArray(pointVao);
@@ -411,7 +319,7 @@ void main() {\n\
 		float* buff = (float*)glMapBuffer(GL_ARRAY_BUFFER, GL_WRITE_ONLY);
 		for (int i = 0; i < 20; i++) {
 			for (int j = 0; j < 3; j++) {
-				buff[i * 3 + j] = points[i][j] + glm::sin(timer) * directions[i][j];
+				buff[i * 3 + j] = points[i][j] + movForce * glm::sin(timer) * directions[i][j];
 			}
 		}
 		glUnmapBuffer(GL_ARRAY_BUFFER);
@@ -496,6 +404,27 @@ namespace Ex2 {
 		glDeleteShader(pointShaders[1]);
 		glDeleteShader(pointShaders[2]);
 	}
+	void updateShaders() {
+		glDeleteProgram(pointProgram);
+		glDeleteShader(pointShaders[0]);
+		glDeleteShader(pointShaders[1]);
+		glDeleteShader(pointShaders[2]);
+
+		std::string shader;
+		readShader("Ex2_vertShader.txt", shader);
+		pointShaders[0] = compileShader(shader.c_str(), GL_VERTEX_SHADER, "pointVert");
+		readShader("Ex2_geomShader.txt", shader);
+		pointShaders[1] = compileShader(shader.c_str(), GL_GEOMETRY_SHADER, "pointGeom");
+		readShader("Ex2_fragShader.txt", shader);
+		pointShaders[2] = compileShader(shader.c_str(), GL_FRAGMENT_SHADER, "pointFrag");
+
+		pointProgram = glCreateProgram();
+		glAttachShader(pointProgram, pointShaders[0]);
+		glAttachShader(pointProgram, pointShaders[1]);
+		glAttachShader(pointProgram, pointShaders[2]);
+		glBindAttribLocation(pointProgram, 0, "in_Position");
+		linkProgram(pointProgram);
+	}
 	void drawPoint() {//////////////////////////////////////////////////////////////////////////TODO
 		glBindVertexArray(pointVao);
 		glUseProgram(pointProgram);
@@ -517,17 +446,6 @@ namespace Ex2 {
 		static float timer = 0;
 		timer += dt;
 		sinus = (glm::sin(timer) + 1) / 2;
-
-		/*glBindBuffer(GL_ARRAY_BUFFER, pointVbo[0]);
-		float* buff = (float*)glMapBuffer(GL_ARRAY_BUFFER, GL_WRITE_ONLY);
-		for (int i = 0; i < numVerts; i++) {
-			for (int j = 0; j < 3; j++) {
-				buff[i * 3 + j] = points[i][j] + glm::sin(timer) * directions[i][j];
-			}
-		}
-		glUnmapBuffer(GL_ARRAY_BUFFER);
-		glBindBuffer(GL_ARRAY_BUFFER, 0);*/
-
 	}
 }
 ////////////////////////////////////////////////// CUBE
@@ -692,7 +610,7 @@ void GLinit(int width, int height) {
 
 	
 	Axis::setupAxis();
-	//Ex1::setupPoint();
+	Ex1::setupPoint();
 	Ex2::setupPoint();
 
 	
@@ -700,11 +618,12 @@ void GLinit(int width, int height) {
 
 void GLcleanup() {
 	Axis::cleanupAxis();
-	//Ex1::cleanupPoint();
+	Ex1::cleanupPoint();
 	Ex2::cleanupPoint();
 	
 }
 
+int ex = 1;
 void GLrender(float dt) {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -717,11 +636,14 @@ void GLrender(float dt) {
 
 	Axis::drawAxis();
 
-	//Ex1::updatePoints(dt);
-	//Ex1::drawPoint();
-
-	Ex2::updatePoints(dt);
-	Ex2::drawPoint();
+	if (ex == 1) {
+		Ex1::updatePoints(dt);
+		Ex1::drawPoint();
+	}
+	else if (ex == 2) {
+		Ex2::updatePoints(dt);
+		Ex2::drawPoint();
+	}
 
 	ImGui::Render();
 }
@@ -736,6 +658,19 @@ void GUI() {
 		/////////////////////////////////////////////////////TODO
 		// Do your GUI code here....
 		// ...
+		if (ImGui::Button("Ex1")) {
+			ex = 1;
+		}
+		ImGui::DragFloat("Moving Intensity", &Ex1::movForce, 0.005, -5, 5);
+		if (ImGui::Button("Ex2")) {
+			ex = 2;
+		}
+		if (ImGui::Button("Recharge shaders Ex1")) {
+			Ex1::updateShaders();
+		}
+		if (ImGui::Button("Recharge shaders Ex2")) {
+			Ex2::updateShaders();
+		}
 		// ...
 		// ...
 		/////////////////////////////////////////////////////////

@@ -1,0 +1,98 @@
+#version 330
+layout(points) in;
+layout(triangle_strip, max_vertices = 72) out;
+out vec4 vert_g_normal;
+uniform mat4 mv_Mat;
+uniform mat4 mvp;
+uniform float h;
+uniform float cubeDiagonal;
+vec4 vertex[24];
+
+void createSquare(int index) {
+	vec4 face_normal = mv_Mat * vec4(normalize(cross(vertex[index + 1].xyz-vertex[index].xyz, vertex[index + 2].xyz-vertex[index].xyz)), 0);
+	for (int i = 0; i < 4; i++) {
+		gl_Position = mvp * vertex[index + i];
+		vert_g_normal = face_normal;
+		EmitVertex();
+	}
+	EndPrimitive();
+}; 
+
+void createHexagon(int v1, int v2, int v3, int v4, int v5, int v6) {
+	vec4 face_normal = mv_Mat * vec4(normalize(cross(vertex[v2].xyz-vertex[v1].xyz, vertex[v3].xyz-vertex[v1].xyz)), 0);
+
+	gl_Position = mvp * vertex[v1];
+	vert_g_normal = face_normal;
+	EmitVertex();
+
+	gl_Position = mvp * vertex[v2];
+	vert_g_normal = face_normal;
+	EmitVertex();
+
+	gl_Position = mvp * vertex[v3];
+	vert_g_normal = face_normal;
+	EmitVertex();
+
+	gl_Position = mvp * vertex[v4];
+	vert_g_normal = face_normal;
+	EmitVertex();
+
+	gl_Position = mvp * vertex[v5];
+	vert_g_normal = face_normal;
+	EmitVertex();
+
+	gl_Position = mvp * vertex[v6];
+	vert_g_normal = face_normal;
+	EmitVertex();
+
+	EndPrimitive();
+}
+
+void main() {
+
+	vertex[0] = gl_in[0].gl_Position + vec4(0, h, cubeDiagonal/2, 0);
+	vertex[1] = gl_in[0].gl_Position + vec4(cubeDiagonal/2, h, 0, 0);
+	vertex[2] = gl_in[0].gl_Position + vec4(-cubeDiagonal/2, h, 0, 0);
+	vertex[3] = gl_in[0].gl_Position + vec4(0, h, -cubeDiagonal/2, 0);
+
+	vertex[4] = gl_in[0].gl_Position + vec4(0, -h, cubeDiagonal/2, 0);
+	vertex[5] = gl_in[0].gl_Position + vec4(-cubeDiagonal/2, -h, 0, 0);
+	vertex[6] = gl_in[0].gl_Position + vec4(cubeDiagonal/2, -h, 0, 0);
+	vertex[7] = gl_in[0].gl_Position + vec4(0, -h, -cubeDiagonal/2, 0);
+
+	vertex[8] = gl_in[0].gl_Position + vec4(-h, 0, cubeDiagonal/2, 0);
+	vertex[9] = gl_in[0].gl_Position + vec4(-h, cubeDiagonal/2, 0, 0);
+	vertex[10] = gl_in[0].gl_Position + vec4(-h, -cubeDiagonal/2, 0, 0);
+	vertex[11] = gl_in[0].gl_Position + vec4(-h, 0, -cubeDiagonal/2, 0);
+
+	vertex[12] = gl_in[0].gl_Position + vec4(h, 0, cubeDiagonal/2, 0);
+	vertex[13] = gl_in[0].gl_Position + vec4(h, -cubeDiagonal/2, 0, 0);
+	vertex[14] = gl_in[0].gl_Position + vec4(h, cubeDiagonal/2, 0, 0);
+	vertex[15] = gl_in[0].gl_Position + vec4(h, 0, -cubeDiagonal/2, 0);
+
+	vertex[16] = gl_in[0].gl_Position + vec4(0, -cubeDiagonal/2, h, 0);
+	vertex[17] = gl_in[0].gl_Position + vec4(cubeDiagonal/2, 0, h, 0);
+	vertex[18] = gl_in[0].gl_Position + vec4(-cubeDiagonal/2, 0, h, 0);
+	vertex[19] = gl_in[0].gl_Position + vec4(0, +cubeDiagonal/2, h, 0);
+
+	vertex[20] = gl_in[0].gl_Position + vec4(0, -cubeDiagonal/2, -h, 0);
+	vertex[21] = gl_in[0].gl_Position + vec4(-cubeDiagonal/2, 0, -h, 0);
+	vertex[22] = gl_in[0].gl_Position + vec4(cubeDiagonal/2, 0, -h, 0);
+	vertex[23] = gl_in[0].gl_Position + vec4(0, +cubeDiagonal/2, -h, 0);
+
+	createSquare(0);
+	createSquare(4);
+	createSquare(8);
+	createSquare(12);
+	createSquare(16);
+	createSquare(20);
+
+	createHexagon(0, 19, 1, 17, 14, 12);
+	createHexagon(0, 2, 19, 9, 18, 8);
+	createHexagon(2, 3, 9, 23, 11, 21);
+	createHexagon(1, 14, 3, 15, 23, 22);
+	createHexagon(17, 16, 12, 4, 13, 6);
+	createHexagon(18, 8, 16, 10, 4, 5);
+	createHexagon(15, 13, 22, 6, 20, 7);
+	createHexagon(11, 21, 10, 20, 5, 7);
+}
