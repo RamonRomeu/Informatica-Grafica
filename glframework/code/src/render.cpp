@@ -509,6 +509,11 @@ uniform vec3 ambient_col;\n\
 void main() {\n\
 	vec3 l = normalize( vec3(mv_Mat * vec4(light_pos, 1.f)) - out_Position );\n\
 	vec3 dif_color = k_dif * light_col * clamp ( dot( vec3(vert_Normal), l ), 0.f, 1.f );\n\
+	//esto es para simular el efecto toon shader, hay que quitar la luz specular, si quieres specular hay que hacer los mismos if que en la diffuse\n\
+	//if(dif_color < 0.2) dif_color = 0;\n\
+	//if(dif_color >= 0.2 && dif_color < 0.4) dif_color = 0.2;\n\
+	//if(dif_color >= 0.4 && dif_color < 0.5) dif_color = 0.4;\n\
+	//if(dif_color >= 0.5) dif_color = 1;\n\
 \n\
 	vec3 amb_col = ambient_col * k_amb;\n\
 \n\
