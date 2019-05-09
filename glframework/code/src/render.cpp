@@ -3,6 +3,10 @@
 #include <glm\gtc\matrix_transform.hpp>
 #include <cstdio>
 #include <cassert>
+#include <string>
+#include <iostream>
+#include <fstream>
+#include <vector>
 
 #include <imgui\imgui.h>
 #include <imgui\imgui_impl_sdl_gl3.h>
@@ -75,6 +79,22 @@ void GLmousecb(MouseEvent ev) {
 }
 
 //////////////////////////////////////////////////
+
+void readShader(std::string file, std::string &buffer) {
+	std::ifstream myFile(file);
+	if (myFile.is_open()) {
+		buffer.clear();
+		std::string aux;
+		while (getline(myFile, aux)) {
+			buffer.append(aux);
+			buffer.append("\n");
+			aux.clear();
+		}
+		myFile.close();
+	}
+	else { std::cout << "Unable to read " << file << " file" << std::endl; }
+}
+
 GLuint compileShader(const char* shaderStr, GLenum shaderType, const char* name="") {
 	GLuint shader = glCreateShader(shaderType);
 	glShaderSource(shader, 1, &shaderStr, NULL);
@@ -102,6 +122,83 @@ void linkProgram(GLuint program) {
 		glGetProgramInfoLog(program, res, &res, buff);
 		fprintf(stderr, "Error Link: %s", buff);
 		delete[] buff;
+	}
+}
+
+bool loadOBJ(const char * path,
+	std::vector < glm::vec3 > & out_vertices,
+	std::vector < glm::vec2 > & out_uvs,
+	std::vector < glm::vec3 > & out_normals)
+{
+	std::vector< unsigned int > vertexIndices, uvIndices, normalIndices;
+	std::vector< glm::vec3 > temp_vertices;
+	std::vector< glm::vec2 > temp_uvs;
+	std::vector< glm::vec3 > temp_normals;
+
+	FILE * file;
+	fopen_s(&file, path, "r");
+	if (file == NULL) {
+		printf("Impossible to open the file !\n");
+		return false;
+	}
+	while (1) {
+		char lineHeader[128];
+		// read the first word of the line
+		int res = fscanf_s(file, "%s", lineHeader, 128);
+		if (res == EOF)
+			break; // EOF = End Of File. Quit the loop.
+
+		if (strcmp(lineHeader, "v") == 0) {
+			glm::vec3 vertex;
+			fscanf_s(file, "%f %f %f\n", &vertex.x, &vertex.y, &vertex.z);
+			temp_vertices.push_back(vertex);
+		}
+		else if (strcmp(lineHeader, "vt") == 0) {
+			glm::vec2 uv;
+			fscanf_s(file, "%f %f\n", &uv.x, &uv.y);
+			temp_uvs.push_back(uv);
+		}
+		else if (strcmp(lineHeader, "vn") == 0) {
+			glm::vec3 normal;
+			fscanf_s(file, "%f %f %f\n", &normal.x, &normal.y, &normal.z);
+			temp_normals.push_back(normal);
+		}
+		else if (strcmp(lineHeader, "f") == 0) {
+			std::string vertex1, vertex2, vertex3;
+			unsigned int vertexIndex[3], uvIndex[3], normalIndex[3];
+			int matches = fscanf_s(file, "%d/%d/%d %d/%d/%d %d/%d/%d\n", &vertexIndex[0], &uvIndex[0], &normalIndex[0], &vertexIndex[1], &uvIndex[1], &normalIndex[1], &vertexIndex[2], &uvIndex[2], &normalIndex[2]);
+			if (matches != 9) {
+				printf("File can't be read by our simple parser : ( Try exporting with other options\n");
+				return false;
+			}
+			vertexIndices.push_back(vertexIndex[0]);
+			vertexIndices.push_back(vertexIndex[1]);
+			vertexIndices.push_back(vertexIndex[2]);
+			uvIndices.push_back(uvIndex[0]);
+			uvIndices.push_back(uvIndex[1]);
+			uvIndices.push_back(uvIndex[2]);
+			normalIndices.push_back(normalIndex[0]);
+			normalIndices.push_back(normalIndex[1]);
+			normalIndices.push_back(normalIndex[2]);
+		}
+	}
+	// For each vertex of each triangle
+	for (unsigned int i = 0; i < vertexIndices.size(); i++) {
+		unsigned int vertexIndex = vertexIndices[i];
+		glm::vec3 vertex = temp_vertices[vertexIndex - 1];
+		out_vertices.push_back(vertex);
+	}
+
+	for (unsigned int i = 0; i < uvIndices.size(); i++) {
+		unsigned int uvIndex = uvIndices[i];
+		glm::vec2 vertex = temp_uvs[uvIndex - 1];
+		out_uvs.push_back(vertex);
+	}
+
+	for (unsigned int i = 0; i < normalIndices.size(); i++) {
+		unsigned int normalIndex = normalIndices[i];
+		glm::vec3 vertex = temp_normals[normalIndex - 1];
+		out_normals.push_back(vertex);
 	}
 }
 
@@ -346,6 +443,143 @@ void drawCube() {
 }
 }
 
+namespace Object {
+	GLuint objectVao;
+	GLuint objectVbo[2];
+	GLuint objectShaders[2];
+	GLuint objectProgram;
+	glm::mat4 objMat = glm::mat4(1.f);
+	float k_amb = 0.f;
+	float k_dif = 0.f;
+	float k_spe = 0.f;
+	float light_pos[3] = { 5.f,10.f,0.f };
+
+	int spec_pow;
+	glm::vec3 light_col;
+
+	const char* object_vertShader =
+		"#version 330\n\
+in vec3 in_Position;\n\
+in vec3 in_Normal;\n\
+out vec4 vert_Normal;\n\
+out vec3 out_Position;\n\
+uniform mat4 objMat;\n\
+uniform mat4 mv_Mat;\n\
+uniform mat4 mvpMat;\n\
+void main() {\n\
+	gl_Position = mvpMat * objMat * vec4(in_Position, 1.0);\n\
+	vert_Normal = mv_Mat * objMat * vec4(in_Normal, 0.0);\n\
+	out_Position = vec3(mv_Mat * objMat * vec4(in_Position, 1.0));\n\
+}";
+	const char* object_fragShader =
+		"#version 330\n\
+in vec4 vert_Normal;\n\
+in vec3 out_Position;\n\
+out vec3 out_Color;\n\
+uniform mat4 mv_Mat;\n\
+uniform vec3 color;\n\
+uniform float k_amb;\n\
+uniform float k_dif;\n\
+uniform float k_spe;\n\
+uniform int spec_pow;\n\
+uniform vec3 light_pos;\n\
+uniform vec3 light_col;\n\
+uniform vec3 camera_pos;\n\
+uniform vec3 ambient_col;\n\
+void main() {\n\
+	vec3 l = normalize( vec3(mv_Mat * vec4(light_pos, 1.f)) - out_Position );\n\
+	vec3 dif_color = k_dif * light_col * clamp ( dot( vec3(vert_Normal), l ), 0.f, 1.f );\n\
+	//esto es para simular el efecto toon shader, hay que quitar la luz specular, si quieres specular hay que hacer los mismos if que en la diffuse\n\
+	//if(dif_color < 0.2) dif_color = 0;\n\
+	//if(dif_color >= 0.2 && dif_color < 0.4) dif_color = 0.2;\n\
+	//if(dif_color >= 0.4 && dif_color < 0.5) dif_color = 0.4;\n\
+	//if(dif_color >= 0.5) dif_color = 1;\n\
+\n\
+	vec3 amb_col = ambient_col * k_amb;\n\
+\n\
+	vec3 E = normalize( camera_pos - out_Position );\n\
+	vec3 R = reflect( -l, vec3(vert_Normal) );\n\
+	vec3 spec_col = k_spe * light_col * pow( clamp( dot( E, R ), 0.f, 1.f ), spec_pow );\n\
+\n\
+	out_Color = color * (dif_color + amb_col + spec_col);\n\
+}";
+	void setupObject() {
+		std::vector<glm::vec3> verts, norms;
+		std::vector<glm::vec2> uvs;
+		loadOBJ("Cabin.obj", verts, uvs, norms);
+
+		k_amb = k_dif = .5f;
+		k_spe = 1.f;
+		spec_pow = 30;
+		light_col = { 1.f, 1.f, 1.f };
+
+		glGenVertexArrays(1, &objectVao);
+		glBindVertexArray(objectVao);
+		glGenBuffers(2, objectVbo);
+
+		glBindBuffer(GL_ARRAY_BUFFER, objectVbo[0]);
+		glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec3) * verts.size(), verts.data(), GL_STATIC_DRAW);///////////
+		glVertexAttribPointer((GLuint)0, 3, GL_FLOAT, GL_FALSE, 0, 0);
+		glEnableVertexAttribArray(0);
+
+		glBindBuffer(GL_ARRAY_BUFFER, objectVbo[1]);
+		glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec3) * norms.size(), norms.data(), GL_STATIC_DRAW);////////////////
+		glVertexAttribPointer((GLuint)1, 3, GL_FLOAT, GL_FALSE, 0, 0);
+		glEnableVertexAttribArray(1);
+
+		glBindVertexArray(0);
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+
+		objectShaders[0] = compileShader(object_vertShader, GL_VERTEX_SHADER, "objectVert");
+		objectShaders[1] = compileShader(object_fragShader, GL_FRAGMENT_SHADER, "objectFrag");
+
+		objectProgram = glCreateProgram();
+		glAttachShader(objectProgram, objectShaders[0]);
+		glAttachShader(objectProgram, objectShaders[1]);
+		glBindAttribLocation(objectProgram, 0, "in_Position");
+		glBindAttribLocation(objectProgram, 1, "in_Normal");
+		linkProgram(objectProgram);
+	}
+	void cleanupObject() {
+		glDeleteBuffers(2, objectVbo);
+		glDeleteVertexArrays(1, &objectVao);
+
+		glDeleteProgram(objectProgram);
+		glDeleteShader(objectShaders[0]);
+		glDeleteShader(objectShaders[1]);
+	}
+	void updateObject(const glm::mat4& transform) {
+		objMat = transform;
+	}
+	void drawObject() {
+		glBindVertexArray(objectVao);
+		glUseProgram(objectProgram);
+
+
+
+		glUniformMatrix4fv(glGetUniformLocation(objectProgram, "objMat"), 1, GL_FALSE, glm::value_ptr(objMat));
+		glUniformMatrix4fv(glGetUniformLocation(objectProgram, "mv_Mat"), 1, GL_FALSE, glm::value_ptr(RenderVars::_modelView));
+		glUniformMatrix4fv(glGetUniformLocation(objectProgram, "mvpMat"), 1, GL_FALSE, glm::value_ptr(RenderVars::_MVP));
+		glUniform3f(glGetUniformLocation(objectProgram, "color"), 0.2, 0.2, 0.2);
+
+		glUniform1f(glGetUniformLocation(objectProgram, "k_amb"), k_amb);
+		glUniform1f(glGetUniformLocation(objectProgram, "k_dif"), k_dif);
+		glUniform1f(glGetUniformLocation(objectProgram, "k_spe"), k_spe);
+		glUniform1i(glGetUniformLocation(objectProgram, "spec_pow"), spec_pow);
+		glUniform3f(glGetUniformLocation(objectProgram, "light_pos"), light_pos[0], light_pos[1], light_pos[2]);
+		glUniform3f(glGetUniformLocation(objectProgram, "light_col"), light_col[0], light_col[1], light_col[2]);
+		glUniform3f(glGetUniformLocation(objectProgram, "ambient_col"), 0.1f, 0.1f, 0.1f);
+		glUniform3f(glGetUniformLocation(objectProgram, "camera_pos"), RV::_cameraPoint.x, RV::_cameraPoint.y, RV::_cameraPoint.z);
+
+
+		glDrawArrays(GL_TRIANGLES, 0, 14000);
+
+		glUseProgram(0);
+		glBindVertexArray(0);
+	}
+}
+
 /////////////////////////////////////////////////
 
 
@@ -361,12 +595,12 @@ void GLinit(int width, int height) {
 
 	// Setup shaders & geometry
 	Axis::setupAxis();
-	Cube::setupCube();
 
 
 	/////////////////////////////////////////////////////TODO
 	// Do your init code here
 	// ...
+	Object::setupObject();
 	// ...
 	// ...
 	/////////////////////////////////////////////////////////
@@ -374,11 +608,11 @@ void GLinit(int width, int height) {
 
 void GLcleanup() {
 	Axis::cleanupAxis();
-	Cube::cleanupCube();
 
 	/////////////////////////////////////////////////////TODO
 	// Do your cleanup code here
 	// ...
+	Object::cleanupObject();
 	// ...
 	// ...
 	/////////////////////////////////////////////////////////
@@ -395,10 +629,10 @@ void GLrender(float dt) {
 	RV::_MVP = RV::_projection * RV::_modelView;
 
 	Axis::drawAxis();
-	Cube::drawCube();
 	/////////////////////////////////////////////////////TODO
 	// Do your render code here
 	// ...
+	Object::drawObject();
 	// ...
 	// ...
 	/////////////////////////////////////////////////////////
