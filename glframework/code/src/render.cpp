@@ -15,6 +15,11 @@
 
 #include "GL_framework.h"
 
+glm::vec3 moonPos{0, 20, 20};
+glm::vec3 moonCol{0.53, 0.68, 0.92};
+glm::vec3 bulbPos{ 0 };
+glm::vec3 bulbCol{ 1, 1, 0 };
+
 ///////// fw decl
 namespace ImGui {
 	void Render();
@@ -28,7 +33,7 @@ void drawAxis();
 
 namespace RenderVars {
 	const float FOV = glm::radians(65.f);
-	const float zNear = 1.f;
+	const float zNear = 0.1f;
 	const float zFar = 50.f;
 
 	glm::mat4 _projection;
@@ -210,6 +215,42 @@ bool loadOBJ(const char * path,
 
 	return true;
 }
+
+struct Model {
+	std::string fileName;
+	GLuint objectVao;
+	GLuint objectVbo[2];
+
+	void modelSetup(std::string n) {
+		fileName = n;
+		std::vector<glm::vec3> verts, norms;
+		std::vector<glm::vec2> uvs;
+		loadOBJ(fileName.c_str(), verts, uvs, norms);
+
+		glGenVertexArrays(1, &objectVao);
+		glBindVertexArray(objectVao);
+		glGenBuffers(2, objectVbo);
+
+		glBindBuffer(GL_ARRAY_BUFFER, objectVbo[0]);
+		glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec3) * verts.size(), verts.data(), GL_STATIC_DRAW);///////////
+		glVertexAttribPointer((GLuint)0, 3, GL_FLOAT, GL_FALSE, 0, 0);
+		glEnableVertexAttribArray(0);
+
+		glBindBuffer(GL_ARRAY_BUFFER, objectVbo[1]);
+		glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec3) * norms.size(), norms.data(), GL_STATIC_DRAW);////////////////
+		glVertexAttribPointer((GLuint)1, 3, GL_FLOAT, GL_FALSE, 0, 0);
+		glEnableVertexAttribArray(1);
+
+		glBindVertexArray(0);
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+	}
+
+	void cleanupModel() {
+		glDeleteBuffers(2, objectVbo);
+		glDeleteVertexArrays(1, &objectVao);
+	}
+};
 
 ////////////////////////////////////////////////// AXIS
 namespace Axis {
@@ -453,8 +494,6 @@ void drawCube() {
 }
 
 namespace Object {
-	GLuint objectVao;
-	GLuint objectVbo[2];
 	GLuint objectShaders[2];
 	GLuint objectProgram;
 	glm::mat4 objMat = glm::mat4(1.f);
@@ -466,82 +505,19 @@ namespace Object {
 	int spec_pow;
 	glm::vec3 light_col;
 
-	const char* object_vertShader =
-		"#version 330\n\
-in vec3 in_Position;\n\
-in vec3 in_Normal;\n\
-out vec4 vert_Normal;\n\
-out vec3 out_Position;\n\
-uniform mat4 objMat;\n\
-uniform mat4 mv_Mat;\n\
-uniform mat4 mvpMat;\n\
-void main() {\n\
-	gl_Position = mvpMat * objMat * vec4(in_Position, 1.0);\n\
-	vert_Normal = mv_Mat * objMat * vec4(in_Normal, 0.0);\n\
-	out_Position = vec3(mv_Mat * objMat * vec4(in_Position, 1.0));\n\
-}";
-	const char* object_fragShader =
-		"#version 330\n\
-in vec4 vert_Normal;\n\
-in vec3 out_Position;\n\
-out vec3 out_Color;\n\
-uniform mat4 mv_Mat;\n\
-uniform vec3 color;\n\
-uniform float k_amb;\n\
-uniform float k_dif;\n\
-uniform float k_spe;\n\
-uniform int spec_pow;\n\
-uniform vec3 light_pos;\n\
-uniform vec3 light_col;\n\
-uniform vec3 camera_pos;\n\
-uniform vec3 ambient_col;\n\
-void main() {\n\
-	vec3 l = normalize( vec3(mv_Mat * vec4(light_pos, 1.f)) - out_Position );\n\
-	vec3 dif_color = k_dif * light_col * clamp ( dot( vec3(vert_Normal), l ), 0.f, 1.f );\n\
-	//esto es para simular el efecto toon shader, hay que quitar la luz specular, si quieres specular hay que hacer los mismos if que en la diffuse\n\
-	//if(dif_color < 0.2) dif_color = 0;\n\
-	//if(dif_color >= 0.2 && dif_color < 0.4) dif_color = 0.2;\n\
-	//if(dif_color >= 0.4 && dif_color < 0.5) dif_color = 0.4;\n\
-	//if(dif_color >= 0.5) dif_color = 1;\n\
-\n\
-	vec3 amb_col = ambient_col * k_amb;\n\
-\n\
-	vec3 E = normalize( camera_pos - out_Position );\n\
-	vec3 R = reflect( -l, vec3(vert_Normal) );\n\
-	vec3 spec_col = k_spe * light_col * pow( clamp( dot( E, R ), 0.f, 1.f ), spec_pow );\n\
-\n\
-	out_Color = color * (dif_color + amb_col + spec_col);\n\
-}";
 	void setupObject() {
-		std::vector<glm::vec3> verts, norms;
-		std::vector<glm::vec2> uvs;
-		loadOBJ("Support.obj", verts, uvs, norms);
-
 		k_amb = k_dif = .5f;
 		k_spe = 1.f;
 		spec_pow = 30;
 		light_col = { 1.f, 1.f, 1.f };
 
-		glGenVertexArrays(1, &objectVao);
-		glBindVertexArray(objectVao);
-		glGenBuffers(2, objectVbo);
+		std::string object_vertShader;
+		readShader("object_vertShader.txt", object_vertShader);
+		objectShaders[0] = compileShader(object_vertShader.c_str(), GL_VERTEX_SHADER, "objectVert");
 
-		glBindBuffer(GL_ARRAY_BUFFER, objectVbo[0]);
-		glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec3) * verts.size(), verts.data(), GL_STATIC_DRAW);///////////
-		glVertexAttribPointer((GLuint)0, 3, GL_FLOAT, GL_FALSE, 0, 0);
-		glEnableVertexAttribArray(0);
-
-		glBindBuffer(GL_ARRAY_BUFFER, objectVbo[1]);
-		glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec3) * norms.size(), norms.data(), GL_STATIC_DRAW);////////////////
-		glVertexAttribPointer((GLuint)1, 3, GL_FLOAT, GL_FALSE, 0, 0);
-		glEnableVertexAttribArray(1);
-
-		glBindVertexArray(0);
-		glBindBuffer(GL_ARRAY_BUFFER, 0);
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-
-		objectShaders[0] = compileShader(object_vertShader, GL_VERTEX_SHADER, "objectVert");
-		objectShaders[1] = compileShader(object_fragShader, GL_FRAGMENT_SHADER, "objectFrag");
+		std::string object_fragShader;
+		readShader("object_fragShader.txt", object_fragShader);
+		objectShaders[1] = compileShader(object_fragShader.c_str(), GL_FRAGMENT_SHADER, "objectFrag");
 
 		objectProgram = glCreateProgram();
 		glAttachShader(objectProgram, objectShaders[0]);
@@ -551,9 +527,6 @@ void main() {\n\
 		linkProgram(objectProgram);
 	}
 	void cleanupObject() {
-		glDeleteBuffers(2, objectVbo);
-		glDeleteVertexArrays(1, &objectVao);
-
 		glDeleteProgram(objectProgram);
 		glDeleteShader(objectShaders[0]);
 		glDeleteShader(objectShaders[1]);
@@ -561,23 +534,23 @@ void main() {\n\
 	void updateObject(const glm::mat4& transform) {
 		objMat = transform;
 	}
-	void drawObject() {
-		glBindVertexArray(objectVao);
+	void drawObject(Model m) {
+		glBindVertexArray(m.objectVao);
 		glUseProgram(objectProgram);
-
-
 
 		glUniformMatrix4fv(glGetUniformLocation(objectProgram, "objMat"), 1, GL_FALSE, glm::value_ptr(objMat));
 		glUniformMatrix4fv(glGetUniformLocation(objectProgram, "mv_Mat"), 1, GL_FALSE, glm::value_ptr(RenderVars::_modelView));
 		glUniformMatrix4fv(glGetUniformLocation(objectProgram, "mvpMat"), 1, GL_FALSE, glm::value_ptr(RenderVars::_MVP));
-		glUniform3f(glGetUniformLocation(objectProgram, "color"), 0.2, 0.2, 0.2);
+		glUniform3f(glGetUniformLocation(objectProgram, "color"), 0.4, 0.4, 0.4);
 
 		glUniform1f(glGetUniformLocation(objectProgram, "k_amb"), k_amb);
 		glUniform1f(glGetUniformLocation(objectProgram, "k_dif"), k_dif);
 		glUniform1f(glGetUniformLocation(objectProgram, "k_spe"), k_spe);
 		glUniform1i(glGetUniformLocation(objectProgram, "spec_pow"), spec_pow);
-		glUniform3f(glGetUniformLocation(objectProgram, "light_pos"), light_pos[0], light_pos[1], light_pos[2]);
-		glUniform3f(glGetUniformLocation(objectProgram, "light_col"), light_col[0], light_col[1], light_col[2]);
+		glUniform3f(glGetUniformLocation(objectProgram, "moon_pos"), moonPos[0], moonPos[1], moonPos[2]);
+		glUniform3f(glGetUniformLocation(objectProgram, "moon_col"), moonCol[0], moonCol[1], moonCol[2]);
+		glUniform3f(glGetUniformLocation(objectProgram, "bulb_pos"), bulbPos[0], bulbPos[1], bulbPos[2]);
+		glUniform3f(glGetUniformLocation(objectProgram, "bulb_col"), bulbCol[0], bulbCol[1], bulbCol[2]);
 		glUniform3f(glGetUniformLocation(objectProgram, "ambient_col"), 0.1f, 0.1f, 0.1f);
 		glUniform3f(glGetUniformLocation(objectProgram, "camera_pos"), RV::_cameraPoint.x, RV::_cameraPoint.y, RV::_cameraPoint.z);
 
@@ -590,7 +563,7 @@ void main() {\n\
 }
 
 /////////////////////////////////////////////////
-
+Model wheel, cabin, support, trump, chicken;
 
 void GLinit(int width, int height) {
 	glViewport(0, 0, width, height);
@@ -609,7 +582,13 @@ void GLinit(int width, int height) {
 	/////////////////////////////////////////////////////TODO
 	// Do your init code here
 	// ...
+	Cube::setupCube();
 	Object::setupObject();
+	wheel.modelSetup("Wheel.obj");
+	cabin.modelSetup("Cabin.obj");
+	support.modelSetup("Support.obj");
+	trump.modelSetup("Trump.obj");
+	chicken.modelSetup("Chicken.obj");
 	// ...
 	// ...
 	/////////////////////////////////////////////////////////
@@ -622,10 +601,26 @@ void GLcleanup() {
 	// Do your cleanup code here
 	// ...
 	Object::cleanupObject();
+	wheel.cleanupModel();
+	cabin.cleanupModel();
+	support.cleanupModel();
+	trump.cleanupModel();
+	chicken.cleanupModel();
 	// ...
 	// ...
 	/////////////////////////////////////////////////////////
 }
+
+float timer = 0.f;
+float cameraTimer = -2.f;
+float bulbTimer = 0.f;
+int bulbMul = 90;
+float RotationVelocity = 5.f;
+bool playSimulation = true;
+
+float xOffset = 0.f;
+float zOffset = -0.15f;
+float yOffset = 0.f;
 
 void GLrender(float dt) {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -636,12 +631,66 @@ void GLrender(float dt) {
 	RV::_modelView = glm::rotate(RV::_modelView, RV::rota[0], glm::vec3(0.f, 1.f, 0.f));
 
 	RV::_MVP = RV::_projection * RV::_modelView;
+	if (playSimulation) {
+		timer += dt;
+		cameraTimer += dt;
+		if (cameraTimer > 2.f)
+			cameraTimer = 0.f;
+		bulbTimer += dt * bulbMul;
+		if (glm::abs(bulbTimer) > 45)
+			bulbMul *= -1;
+	}
+
+	bulbPos = { glm::cos(glm::radians(timer * RotationVelocity)) * 7.1  + glm::sin(glm::radians(bulbTimer)) * 0.2, glm::sin(glm::radians(timer * RotationVelocity)) * 7.1 - glm::cos(glm::radians(bulbTimer)) * 0.2, 0 - 0.15f };
+
+	glm::vec3 trumpPos(0, glm::sin(glm::radians(timer * RotationVelocity)) * 7.1 - 0.84, glm::cos(glm::radians(timer * RotationVelocity)) * 7.1 - 0.25);
+	glm::vec3 chickenPos(0, glm::sin(glm::radians(timer * RotationVelocity)) * 7.1 - 0.41, -(glm::cos(glm::radians(timer * RotationVelocity)) * 7.1 + 0.35));
+
+	glm::mat4 cameraTransform;
+	if (cameraTimer < 0.f) {
+		cameraTransform = glm::rotate(glm::lookAt(glm::vec3(0, 3.98, 13.24), glm::vec3(0), glm::vec3(0, 1, 0)), glm::radians(30.f), glm::vec3(0, 1, 0));
+	}
+	else if (cameraTimer < 1.f)
+		cameraTransform = glm::lookAt(glm::vec3(trumpPos.z + 0.04, trumpPos.y + 0.65, 0.25), glm::vec3(-chickenPos.z, chickenPos.y + 0.1, chickenPos.x), glm::vec3(0.f, 1.f, 0.f));
+	else
+		cameraTransform = glm::lookAt(glm::vec3(-chickenPos.z + 0.05, chickenPos.y + 0.18, 0.17), glm::vec3(trumpPos.z, trumpPos.y + 0.43, trumpPos.x), glm::vec3(0.f, 1.f, 0.f));
+	
+	RV::_modelView = cameraTransform;
+	RV::_MVP = RV::_projection * RV::_modelView;
 
 	Axis::drawAxis();
 	/////////////////////////////////////////////////////TODO
 	// Do your render code here
 	// ...
-	Object::drawObject();
+
+	//Cube::updateCube(translate(glm::scale(glm::mat4(1), glm::vec3(0.5)), bulbPos));
+	Cube::updateCube(glm::scale(translate(glm::mat4(1), bulbPos), glm::vec3(0.1)));
+	Cube::drawCube();
+
+	Object::drawObject(support);
+	
+	for (int i = 0; i < 20; i++) {
+		glm::vec3 aux(glm::cos(glm::radians(timer * RotationVelocity + 18 * i)) * 7.1, glm::sin(glm::radians(timer * RotationVelocity + 18 * i)) * 7.1, 0);
+		Object::updateObject(glm::translate(glm::mat4(1.f), aux));
+		Object::drawObject(cabin);
+	}
+
+	Object::updateObject(glm::mat4(1.f));
+	
+	Object::updateObject(glm::translate(glm::rotate(glm::mat4(1.f), glm::radians(90.f), glm::vec3(0, 1, 0)), trumpPos));
+	Object::drawObject(trump);
+
+	Object::updateObject(glm::mat4(1.f));
+	
+	Object::updateObject(glm::translate(glm::rotate(glm::mat4(1.f), glm::radians(-90.f), glm::vec3(0, 1, 0)), chickenPos));
+	Object::drawObject(chicken);
+
+	Object::updateObject(glm::mat4(1.f));
+	Object::updateObject(glm::rotate(Object::objMat, glm::radians(timer * RotationVelocity), glm::vec3(0, 0, 1)));
+	Object::drawObject(wheel);
+	Object::updateObject(glm::mat4(1.f));
+
+	
 	// ...
 	// ...
 	/////////////////////////////////////////////////////////
@@ -655,7 +704,20 @@ void GUI() {
 
 	{
 		ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
+		ImGui::Checkbox("Play Simulation", &playSimulation);
+		if (ImGui::Button("Reload Shaders")) {
+			Object::cleanupObject();
+			Object::setupObject();
+		}
+		ImGui::DragFloat("Rotation Velocity", &RotationVelocity, 0.1, 0, 100);
+		ImGui::DragFloat3("MoonPos", &moonPos.x, 0.05);
+		ImGui::DragFloat3("MoonCol", &moonCol.x, 0.05);
 
+		ImGui::DragFloat3("BulbCol", &bulbCol.x, 0.05);
+
+		ImGui::DragFloat("x", &xOffset, 0.01);
+		ImGui::DragFloat("z", &zOffset, 0.01);
+		ImGui::DragFloat("y", &yOffset, 0.01);
 		/////////////////////////////////////////////////////TODO
 		// Do your GUI code here....
 		// ...

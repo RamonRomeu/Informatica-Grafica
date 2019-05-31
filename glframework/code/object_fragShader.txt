@@ -1,0 +1,44 @@
+#version 330
+in vec4 vert_Normal;
+in vec3 out_Position;
+out vec3 out_Color;
+uniform mat4 mv_Mat;
+uniform vec3 color;
+uniform float k_amb;
+uniform float k_dif;
+uniform float k_spe;
+uniform int spec_pow;
+uniform vec3 moon_pos;
+uniform vec3 moon_col;
+uniform vec3 bulb_pos;
+uniform vec3 bulb_col;
+uniform vec3 camera_pos;
+uniform vec3 ambient_col;
+void main() {
+	//if (mod(gl_FragCoord.x + gl_FragCoord.y, 2.0f) > 0.5f) {discard;}
+	vec3 l = normalize( vec3(mv_Mat * vec4(moon_pos, 1.f)) - out_Position );
+	vec3 dif_color = k_dif * moon_col * clamp ( dot( vec3(vert_Normal), l ), 0.f, 1.f );
+	//esto es para simular el efecto toon shader, hay que quitar la luz specular, si quieres specular hay que hacer los mismos if que en la diffuse
+
+	for (int i = 0; i < 3; i++) {
+		if(dif_color[i] < 0.2)
+			dif_color[i] = 0;
+		else if(dif_color[i] >= 0.2 && dif_color[i] < 0.4)
+			dif_color[i] = 0.2;
+		else if(dif_color[i] >= 0.4 && dif_color[i] < 0.5)
+			dif_color[i] = 0.4;
+		else if(dif_color[i] >= 0.5)
+			dif_color[i] = 1;
+	}
+	
+	vec3 amb_col = ambient_col * k_amb;
+
+	vec3 E = normalize( camera_pos - out_Position );
+	vec3 R = reflect( -l, vec3(vert_Normal) );
+	vec3 spec_col = k_spe * moon_col * pow( clamp( dot( E, R ), 0.f, 1.f ), spec_pow );
+	l = normalize( vec3(mv_Mat * vec4(bulb_pos, 1.f)) - out_Position );
+	R = reflect( -l, vec3(vert_Normal) );
+	spec_col += k_spe * bulb_col * pow( clamp( dot( E, R ), 0.f, 1.f ), spec_pow );
+
+	out_Color = color * (dif_color + amb_col + spec_col);
+}
